@@ -1,6 +1,5 @@
 <img src="/TepeGoz-Cli.png" width="500px">
 <h1>TepeGoz-Cli</h1>
-<hr>
 <p align="center">
   <b>Sistem kaynaklarını minimumda tutarak terminal üzerinden hızlı ve etkili işlemler yapmanızı sağlayan hafif bir komut satırı aracı.</b>
 </p>
