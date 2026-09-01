@@ -1,6 +1,30 @@
 import subprocess
 import platform
 import requests
+import importlib.util
+import sys
+
+def check_requirements():
+    # Projede dışarıdan yüklenen harici paketleri buraya yazabilirsin
+    required_packages = ["requests"]
+    missing_packages = []
+
+    for package in required_packages:
+        # Kütüphanenin sistemde var olup olmadığını kontrol et
+        if importlib.util.find_spec(package) is None:
+            missing_packages.append(package)
+
+    if missing_packages:
+        print(f"{RED}[!] Eksik paketler tespit edildi: {', '.join(missing_packages)}\n")
+        print(f"{YELLOW}[!] Bağımlılıklar kuruluyor")
+        if platform.system() == "Windows":
+            subprocess.run("python -m pip install ")
+        sys.exit(1)
+    else:
+        print(f"{GREEN}[+] Tüm bağımlılıklar eksiksiz.")
+
+if __name__ == "__main__":
+    check_requirements()
 
 if platform.system() == "Windows":
     subprocess.call("cls")
