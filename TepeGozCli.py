@@ -4,40 +4,15 @@ import requests
 import importlib.util
 import sys
 
-def check_requirements():
-    # Projede dışarıdan yüklenen harici paketleri buraya yazabilirsin
-    required_packages = ["requests"]
-    missing_packages = []
-
-    for package in required_packages:
-        # Kütüphanenin sistemde var olup olmadığını kontrol et
-        if importlib.util.find_spec(package) is None:
-            missing_packages.append(package)
-
-    if missing_packages:
-        print(f"{RED}[!] Eksik paketler tespit edildi: {', '.join(missing_packages)}\n")
-        print(f"{YELLOW}[!] Bağımlılıklar kuruluyor")
-        if platform.system() == "Windows":
-            subprocess.run("python -m pip install ")
-        sys.exit(1)
-    else:
-        print(f"{GREEN}[+] Tüm bağımlılıklar eksiksiz.")
-
-if __name__ == "__main__":
-    check_requirements()
-
-if platform.system() == "Windows":
-    subprocess.call("cls")
-else:
-    subprocess.call("clear")
-
 GREEN = "\033[32m"
 RED = "\033[31m"
 YELLOW = "\033[33m"
 BLUE = "\033[94m"
 RESET = "\033[0m"
 
-Extra_characters = ["_", "!", ""]
+found_links = []
+
+Extra_characters = ["_", ".", "!", "-", "~"]
 
 urls = [
             { "name": "Facebook", "url": "https://www.facebook.com/{user}" },
@@ -124,6 +99,24 @@ urls = [
             { "name": "ORCID", "url": "https://orcid.org/{user}" },
 ]
 
+popular_urls = [
+    { "name": "Facebook", "url": "https://www.facebook.com/{user}"},
+    { "name": "Instagram", "url": "https://www.instagram.com/{user}/" },
+    { "name": "YouTube", "url": "https://www.youtube.com/@{user}" },
+    { "name": "TikTok", "url": "https://www.tiktok.com/@{user}" },
+    { "name": "GitHub", "url": "https://github.com/{user}" },
+    { "name": "Spotify", "url": "https://open.spotify.com/user/{user}" },
+    { "name": "Twitter", "url": "https://twitter.com/{user}" },
+    { "name": "LinkedIn", "url": "https://www.linkedin.com/in/{user}" },
+    { "name": "Pinterest", "url": "https://www.pinterest.com/{user}/" },
+    { "name": "Tumblr", "url": "https://{user}.tumblr.com" },
+    { "name": "Snapchat", "url": "https://www.snapchat.com/add/{user}" },
+    { "name": "Telegram", "url": "https://t.me/{user}" },
+    { "name": "Discord", "url": "https://discord.com/users/{user}" },
+    { "name": "Reddit", "url": "https://www.reddit.com/user/{user}" },
+    { "name": "Twitch", "url": "https://www.twitch.tv/{user}" },
+]
+
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
@@ -152,8 +145,60 @@ menu_header = f"""{GREEN}
  My Website --> https://alperenbuba.github.io/TurkByteSoftware/{YELLOW}
 """
 
+
+def check_requirements():
+    # Projede dışarıdan yüklenen harici paketleri buraya yazabilirsin
+    required_packages = ["requests"]
+    missing_packages = []
+
+    for package in required_packages:
+        # Kütüphanenin sistemde var olup olmadığını kontrol et
+        if importlib.util.find_spec(package) is None:
+            missing_packages.append(package)
+
+    if missing_packages:
+        print(f"{RED}[!] Eksik paketler tespit edildi: {', '.join(missing_packages)}\n")
+        print(f"{YELLOW}[!] Bağımlılıklar kuruluyor")
+        if platform.system() == "Windows":
+            subprocess.run("python -m pip install requests")
+        else:
+            subprocess.run("pip3 install requests")
+        sys.exit(1)
+    else:
+        print(f"{GREEN}[+] Tüm bağımlılıklar eksiksiz.")
+
+def Start():
+    print(menu_header)
+    username = input(f" Enter the person's username:{GREEN} ")
+    if username == "":
+        print(f"{RED} [!] Programdan Çıkılıyor...")
+        return 0
+    else:
+        variants = versionCreator(username)
+        for variant in variants:
+            finder(variant)
+        fileCreator(username)
+
+
+def versionCreator(name):
+    ciktilar = []
+    username = name
+    for characters in Extra_characters:
+        cikti = f"{username.replace(' ', characters)}"
+        ciktilar.append(cikti)
+
+    for characters in Extra_characters:
+        cikti = f"{characters}{username.replace(' ', '')}{characters}"
+        ciktilar.append(cikti)
+
+    for characters in Extra_characters:
+        cikti = f"{characters}{username.replace(' ', characters)}{characters}"
+        ciktilar.append(cikti)
+
+    return ciktilar
+
+
 def finder(user):
-    found_links = []
     for url in urls:
         name = url["name"]
         adress = url["url"].format(user=user)
@@ -171,6 +216,7 @@ def finder(user):
         except Exception as e:
             print(f"{RED}[!] {name}: An error occurred -> {e}")
 
+def fileCreator(user):
     if found_links:
         save_choice = input(f"\n{BLUE}[?] Should the found links be saved to a .txt file? (Y/N): {GREEN}").strip().lower()
         if save_choice in ['Y', 'yes', 'y']:
@@ -185,9 +231,10 @@ def finder(user):
     else:
         print(f"\n{YELLOW}[*] No file was created because no links were found.{RESET}")
 
-def Start():
-    print(menu_header)
-    username = input(f" Enter the person's username:{GREEN} ")
-    finder(username)
-    
+if platform.system() == "Windows":
+    subprocess.call("cls")
+else:
+    subprocess.call("clear")
+
+check_requirements()
 Start()
