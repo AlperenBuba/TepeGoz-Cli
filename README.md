@@ -1,7 +1,7 @@
 <img src="/TepeGoz-Cli.png" width="500px">
 <h1>TepeGoz-Cli</h1>
 <p align="center">
-  <b>Sistem kaynaklarını minimumda tutarak terminal üzerinden hızlı ve etkili işlemler yapmanızı sağlayan hafif bir komut satırı aracı.</b>
+  <b>A lightweight command-line tool that allows you to perform fast and effective operations via the terminal by keeping system resources to a minimum.</b>
 </p>
 
 <p align="center">
@@ -12,23 +12,24 @@
 
 ---
 
-## 🚀 Özellikler
+## 🚀 Features
 
-* **Hafif ve Hızlı:** Minimal bağımlılıklarla terminal üzerinden anında tepki süresi.
-* **Esnek Argüman Yönetimi:** Özelleştirilebilir parametreler ve bayraklar (flags).
-* **Çapraz Platform:** Linux, macOS ve Windows ortamlarında sorunsuz çalışma desteği.
-* **Açık Kaynak:** Özgürce geliştirilebilir ve özelleştirilebilir yapı.
+* **Lightweight and Fast:** Instant response time via the terminal with minimal dependencies.
+* **Flexible Argument Management:** Customizable parameters and flags.
+* **Cross-Platform:** Seamless operation support in Linux, macOS, and Windows environments.
+* **Open Source:** Freely developable and customizable structure.
 
 ---
 
-## 📦 Kurulum
+## 📦 Installation
 
-Projeyi yerel ortamınıza klonlayın ve kök dizinden kurulumu gerçekleştirin:
+Clone the project to your local environment and perform the installation from the root directory:
 
 ```bash
-# Depoyu klonlayın
-git clone [https://github.com/AlperenBuba/tepegoz.git](https://github.com/AlperenBuba/tepegoz.git)
+# Clone the repository
+git clone https://github.com/AlperenBuba/tepegoz.git
 cd tepegoz
 
-# Gerekli paketleri ve komutu yükleyin
+# Install the required packages and the command
 pip install .
+```
