@@ -139,27 +139,27 @@ def finder(user):
                 print(f"{BLUE}[+] {GREEN}{name}: Link Found! --> {adress}")
                 found_links.append((name, adress))
             else:
-                pass
+                pass 
         except requests.exceptions.Timeout:
-            print(f"{RED}[!] {name}: Zaman aşımı (Site yanıt vermedi)")
+            print(f"{RED}[!] {name}: Timeout (Site did not respond)")
         except requests.exceptions.ConnectionError:
-            print(f"{YELLOW}[!] {name}: Bağlantı hatası")
+            print(f"{YELLOW}[!] {name}: Connection error")
         except Exception as e:
-            print(f"{RED}[!] {name}: Hata oluştu -> {e}")
+            print(f"{RED}[!] {name}: An error occurred -> {e}")
 
     if found_links:
-        save_choice = input(f"\n{BLUE}[?] Bulunan linkler bir .txt dosyasına kaydedilsin mi? (E/H): {GREEN}").strip().lower()
-        if save_choice in ['e', 'evet']:
-            filename = f"{user}_bulunan_linkler.txt"
+        save_choice = input(f"\n{BLUE}[?] Should the found links be saved to a .txt file? (Y/N): {GREEN}").strip().lower()
+        if save_choice in ['Y', 'yes', 'y']:
+            filename = f"{user}.txt"
             with open(filename, "w", encoding="utf-8") as f:
                 f.write(f"--- TepeGoz OSINT Raporu: {user} ---\n\n")
                 for name, adress in found_links:
                     f.write(f"{name}: {adress}\n")
-            print(f"\n{GREEN}[*] Sonuçlar '{filename}' dosyasına başarıyla kaydedildi.{RESET}")
+            print(f"\n{GREEN}[*] The results were successfully saved to the ‘{filename}’ file.{RESET}")
         else:
-            print(f"\n{YELLOW}[*] Dosya kaydetme işlemi atlandı.{RESET}")
+            print(f"\n{YELLOW}[*] The file-saving process was skipped.{RESET}")
     else:
-        print(f"\n{YELLOW}[*] Hiçbir link bulunamadığı için dosya oluşturulmadı.{RESET}")
+        print(f"\n{YELLOW}[*] No file was created because no links were found.{RESET}")
 
 def Start():
     print(menu_header)
