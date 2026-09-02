@@ -1,4 +1,0 @@
-# Tepegöz CLI - Gereksinimler Dosyası
-# Projede kullanılan harici Python kütüphaneleri
-
-requests>=2.25.0

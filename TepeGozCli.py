@@ -10,6 +10,8 @@ YELLOW = "\033[33m"
 BLUE = "\033[94m"
 RESET = "\033[0m"
 
+gecikme = 3
+
 def check_requirements():
     required_packages = ["requests", "selenium", "tqdm"]
     missing_packages = []
@@ -43,8 +45,10 @@ def check_selenium_profile(url):
     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
     driver = webdriver.Chrome(options=options)
+    driver.set_page_load_timeout(7)
     try:
         driver.get(url)
+        time.sleep(gecikme)
         driver.implicitly_wait(3)
         body_text = driver.find_element(By.TAG_NAME, "body").text.lower()
         
@@ -97,6 +101,17 @@ def check_selenium_profile(url):
             "meet your virtual twin"
             "the page you requested was not found",
             "not found",
+            "hmm...",
+            "this page doesn’t exist",
+            "try searching for something else",
+            "Favori fikirlerinizi hayata geçirin",
+            "Üzgünüz, bu sayfaya ulaşılamıyor.",
+            "Bu İçeriğe Şu Anda Ulaşılamıyor",
+            "Tıkladığın bağlantı bozuk olabilir veya sayfa kaldırılmış olabilir.",
+            "Bu sayfa kullanılamıyor. Özür dileriz. Başka bir şey aramayı deneyin.",
+            "Bu sayfa bulunamadı",
+            "Başka bir şey aransın mı?",
+            "Bu hesap bulunamadı",
         ]
         
         for phrase in error_phrases:
@@ -299,7 +314,7 @@ def is_valid_profile(response):
         "we couldn’t find that page",
         "the page you requested was not found",
         "not found",
-        "meet your virtual twin"
+        "meet your virtual twin",
     ]
     
     page_content = response.text.lower()
@@ -347,6 +362,7 @@ def Start():
                 
                 if engine == "requests":
                     try:
+                        time.sleep(0.5)
                         response = requests.get(adress, headers=headers, timeout=7, allow_redirects=True)
                         if secim == 1:
                             if response.status_code == 200:
@@ -388,7 +404,7 @@ def versionCreator(name):
         cikti = f"{characters}{username.replace(' ', characters)}{characters}"
         ciktilar.append(cikti)
 
-    return ciktilar
+    return list(set(ciktilar))
 
 
 def finder(user):
@@ -455,7 +471,7 @@ def fileCreator(user):
             print(f"\n{YELLOW}[*] The file-saving process was skipped.{RESET}")
     else:
         print(f"\n{YELLOW}[*] No file was created because no links were found.{RESET}")
-        
+
 def clear():
     if platform.system() == "Windows":
         subprocess.call("cls")
