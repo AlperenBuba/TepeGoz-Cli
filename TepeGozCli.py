@@ -1,4 +1,3 @@
-
 import subprocess
 import platform
 import sys
@@ -13,6 +12,8 @@ RESET = "\033[0m"
 gecikme = 3
 
 def check_requirements():
+    if getattr(sys, 'frozen', False):
+        return
     required_packages = ["requests", "selenium", "tqdm"]
     missing_packages = []
 
@@ -23,108 +24,166 @@ def check_requirements():
     if missing_packages:
         print(f"{RED}[!] Eksik paketler tespit edildi: {', '.join(missing_packages)}\n")
         print(f"{YELLOW}[!] Bağımlılıklar kuruluyor...")
-        subprocess.run([sys.executable, "-m", "pip", "install", "--break-system-packages"] + missing_packages)
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--break-system-packages"] + missing_packages,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
     else:
         print(f"{GREEN}[+] Tüm bağımlılıklar eksiksiz.")
 check_requirements()
 
 from tqdm import tqdm
 import time
-import requests
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 
-def check_selenium_profile(url):
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-
-    driver = webdriver.Chrome(options=options)
-    driver.set_page_load_timeout(7)
+def get_smart_driver():
+    sys_platform = platform.system()
+    
+    # 1. Önce Chrome'u denetle (Gelişmiş Bot Gizleme Parametreleriyle)
     try:
+        from selenium.webdriver.chrome.options import Options as ChromeOptions
+        options = ChromeOptions()
+        options.add_argument("--headless=new") # Modern ve daha az yakalanan headless modu
+        options.add_argument("--disable-gpu")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+        
+        # Otomasyon izlerini gizleyen kritik bayraklar
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
+        
+        driver = webdriver.Chrome(options=options)
+        # Ekstra JavaScript koruma gizlemesi
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        return driver
+    except Exception:
+        pass 
+
+    # 2. Microsoft Edge'i denetle
+    try:
+        from selenium.webdriver.edge.options import Options as EdgeOptions
+        options = EdgeOptions()
+        options.add_argument("--headless=new")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
+        
+        driver = webdriver.Edge(options=options)
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        return driver
+    except Exception:
+        pass
+
+    # 3. Firefox'u denetle
+    try:
+        from selenium.webdriver.firefox.options import Options as FirefoxOptions
+        options = FirefoxOptions()
+        options.add_argument("-headless")
+        options.set_preference("general.useragent.override", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0")
+        return webdriver.Firefox(options=options)
+    except Exception:
+        pass 
+
+    # 4. Mac için Safari'yi denetle
+    if sys_platform == "Darwin":
+        try:
+            return webdriver.Safari()
+        except Exception:
+            pass
+
+    return None
+
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+def check_selenium_profile(url):
+    driver = None
+    try:
+        driver = get_smart_driver()
+        if not driver:
+            return False
+
         driver.get(url)
-        time.sleep(gecikme)
-        driver.implicitly_wait(3)
-        body_text = driver.find_element(By.TAG_NAME, "body").text.lower()
         
-        error_phrases = [
-            "tıkladığın bağlantı bozuk olabilir",
-            "üzgünüz, bu sayfaya ulaşılamıyor",
-            "page not found",
-            "sorry, this page isn't available",
-            "bulunamadı",
-            "hesap bulunamadı",
-            "üzgünüz, aradığın sayfa bulunamadı",
-            "bu sayfa kullanılamıyor",
-            "Başka bir şey aramayı deneyin",
-            "özür dileriz",
-            "bu sayfayı bulamıyoruz",
-            "hay aksi",
-            "we looked everywhere but couldn't find this page",
-            "the page you're looking for doesn't exist."
-            "not found", 
-            "bulunamadı", 
-            "doesn't exist", 
-            "does not exist", 
-            "hesap bulunamadı", 
-            "bu sayfa mevcut değil", 
-            "page not found",
-            "user not found",
-            "kullanıcı bulunamadı",
-            "profile not found",
-            "404",
-            "tıkladığın bağlantı bozuk olabilir veya sayfa kaldırılmış olabilir.",
-            "üzgünüz",
-            "bu sayfaya ulaşılamıyor",
-            "We can’t find that user.",
-            "looks like this page evaded detection",
-            "The requested page was not found",
-            "Page no longer exists",
-            "This account doesn’t exist",
-            "ne yazık ki reddit’teki kimse bu adı kullanmıyor",
-            "mesajlaşmada yeni bir çağ",
-            "a new era of messaging",
-            "the page you're looking for doesn't exist.",
-            "Page no longer exists",
-            "oops",
-            "oops.",
-            "bu hesap bulunamadı",
-            "Bu sayfa kullanılamıyor. Özür dileriz. Başka bir şey aramayı deneyin.",
-            "sorry",
-            "we couldn’t find that page",
-            "nginx",
-            "meet your virtual twin"
-            "the page you requested was not found",
-            "not found",
-            "hmm...",
-            "this page doesn’t exist",
-            "try searching for something else",
-            "Favori fikirlerinizi hayata geçirin",
-            "Üzgünüz, bu sayfaya ulaşılamıyor.",
-            "Bu İçeriğe Şu Anda Ulaşılamıyor",
-            "Tıkladığın bağlantı bozuk olabilir veya sayfa kaldırılmış olabilir.",
-            "Bu sayfa kullanılamıyor. Özür dileriz. Başka bir şey aramayı deneyin.",
-            "Bu sayfa bulunamadı",
-            "Başka bir şey aransın mı?",
-            "Bu hesap bulunamadı",
-        ]
-        
-        for phrase in error_phrases:
-            if phrase.lower() in body_text:
+        # Sayfanın yüklenmesini bekle
+        try:
+            WebDriverWait(driver, gecikme).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
+        except Exception:
+            pass 
+
+        title = driver.title.lower()
+        current_url = driver.current_url.lower()
+        page_text = driver.page_source.lower()
+
+        # 1. Eğer URL 404 sayfasına yönlendirildiyse veya ana sayfaya fırlattıysa kesinlikle yoktur
+        if "404" in title or "not found" in title or "bulunamadı" in title:
+            driver.quit()
+            return False
+
+        # 2. Bazı siteler (Instagram, Twitter vb.) olmayan kullanıcıyı login sayfasına veya ana sayfaya atar
+        if "instagram.com" in url.lower() and ("accounts/login" in current_url or "giriş yap" in title):
+            driver.quit()
+            return False
+
+        if "instagram.com" in url.lower():
+            if "üzgünüz, bu sayfaya ulaşılamıyor" in page_text or "tıklandığın bağlantı bozuk olabilir" in page_text or "page not found" in page_text:
                 driver.quit()
                 return False
-                
+
+        if "instagram.com" in url.lower():
+            try:
+                # Hata mesajının DOM'a düşmesi için kısa bir süre (örn: 2 saniye) max bekle
+                WebDriverWait(driver, 2).until(
+                    EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'ulaşılamıyor') or contains(text(), 'bozuk olabilir')]"))
+                )
+                # Eğer bu hata elementi bulunursa, hesap kesinlikle yoktur!
+                driver.quit()
+                return False
+            except Exception:
+                pass
+
+        if "linkedin.com" in url.lower():
+            if "linkedin.com/login" in current_url or "sign in" in title or "giriş yap" in title or "join linkedin" in page_text:
+                driver.quit()
+                return False
+
+        if "reddit.com" in url.lower():
+            if "kimse bu adı kullanmıyor" in page_text or "bu hesap yasaklanmış" in page_text or "not found" in page_text:
+                driver.quit()
+                return False
+
+        if "github.com" in url.lower() and "sign in" in title:
+            # GitHub profil varsa sign in olsa bile başlıkta kullanıcı adı görünür
+            pass
+
+        # Genel hata başlığı kontrolü
+        error_titles = ["bulunamadı", "not found", "sayfa bulunamadı", "page not found", "error", "404"]
+        for err in error_titles:
+            if err in title and len(title) < 50: # Sadece başlık hata mesajından ibaretse
+                driver.quit()
+                return False
+
         driver.quit()
         return True
     except Exception:
-        driver.quit()
+        if driver:
+            try:
+                driver.quit()
+            except:
+                pass
         return False
-
+    
 found_links = []
 
 Extra_characters = ["_", "."]
@@ -224,9 +283,9 @@ popular_urls = [
     { "name": "Twitter", "url": "https://twitter.com/{user}", "engine": "selenium" },
     { "name": "LinkedIn", "url": "https://www.linkedin.com/in/{user}", "engine": "selenium" },
     { "name": "Pinterest", "url": "https://www.pinterest.com/{user}/", "engine": "selenium" },
-    { "name": "Tumblr", "url": "https://{user}.tumblr.com", "engine": "requests" },
+    { "name": "Tumblr", "url": "https://{user}.tumblr.com", "engine": "selenium" },
     { "name": "Snapchat", "url": "https://www.snapchat.com/add/{user}", "engine": "selenium" },
-    { "name": "Telegram", "url": "https://t.me/{user}", "engine": "requests" },
+    { "name": "Telegram", "url": "https://t.me/{user}", "engine": "selenium" },
     { "name": "Discord", "url": "https://discord.com/users/{user}", "engine": "selenium" },
     { "name": "Reddit", "url": "https://www.reddit.com/user/{user}", "engine": "selenium" },
     { "name": "Twitch", "url": "https://www.twitch.tv/{user}", "engine": "selenium" },
@@ -262,71 +321,6 @@ menu_header = f"""{GREEN}
  My Website --> https://alperenbuba.github.io/TurkByteSoftware/{YELLOW}
 """
 
-def is_valid_profile(response):
-    if response.status_code != 200:
-        return False
-
-    error_keywords = [
-        "tıkladığın bağlantı bozuk olabilir",
-        "üzgünüz, bu sayfaya ulaşılamıyor",
-        "page not found",
-        "sorry, this page isn't available",
-        "bulunamadı",
-        "hesap bulunamadı",
-        "üzgünüz, aradığın sayfa bulunamadı",
-        "bu sayfa kullanılamıyor",
-        "Başka bir şey aramayı deneyin",
-        "özür dileriz",
-        "bu sayfayı bulamıyoruz",
-        "hay aksi",
-        "we looked everywhere but couldn't find this page",
-        "the page you're looking for doesn't exist."
-        "not found", 
-        "bulunamadı", 
-        "doesn't exist", 
-        "does not exist", 
-        "hesap bulunamadı", 
-        "bu sayfa mevcut değil", 
-        "page not found",
-        "user not found",
-        "kullanıcı bulunamadı",
-        "profile not found",
-        "404",
-        "tıkladığın bağlantı bozuk olabilir veya sayfa kaldırılmış olabilir.",
-        "üzgünüz",
-        "bu sayfaya ulaşılamıyor",
-        "We can’t find that user.",
-        "looks like this page evaded detection",
-        "the requested page was not found",
-        "page no longer exists",
-        "this account doesn’t exist",
-        "ne yazık ki reddit’teki kimse bu adı kullanmıyor",
-        "mesajlaşmada yeni bir çağ",
-        "a new era of messaging",
-        "the page you're looking for doesn't exist.",
-        "Page no longer exists",
-        "oops",
-        "oops.",
-        "bu hesap bulunamadı",
-        "Bu sayfa kullanılamıyor. Özür dileriz. Başka bir şey aramayı deneyin.",
-        "nginx",
-        "sorry",
-        "we couldn’t find that page",
-        "the page you requested was not found",
-        "not found",
-        "meet your virtual twin",
-    ]
-    
-    page_content = response.text.lower()
-    
-    for keyword in error_keywords:
-        if keyword in page_content:
-            return False
-            
-    return True
-
-
-
 def Start():
     clear()
     print(menu_header)
@@ -359,27 +353,12 @@ def Start():
                 name = url_item["name"]
                 adress = url_item["url"].format(user=variant)
                 engine = url_item.get("engine", "requests")
-                
-                if engine == "requests":
-                    try:
-                        time.sleep(0.5)
-                        response = requests.get(adress, headers=headers, timeout=7, allow_redirects=True)
-                        if secim == 1:
-                            if response.status_code == 200:
-                                tqdm.write(f"{BLUE}[+] {GREEN}{name} ({variant}): Link Found! --> {adress}")
-                                found_links.append((name, adress))
-                        else:
-                            if is_valid_profile(response):
-                                tqdm.write(f"{BLUE}[+] {GREEN}{name} ({variant}): Link Found! --> {adress}")
-                                found_links.append((name, adress))
-                    except Exception:
-                        pass
-
-                elif engine == "selenium":
+                if engine == "selenium":
                     if check_selenium_profile(adress):
                         tqdm.write(f"{BLUE}[+] {GREEN}{name} ({variant}): Link Found! --> {adress}")
                         found_links.append((name, adress))
-    
+                else:
+                    pass
                 pbar.update(1)
     fileCreator(username)
 
@@ -412,21 +391,6 @@ def finder(user):
         name = url["name"]
         adress = url["url"].format(user=user)
         engine = url.get("engine", "requests")
-        if engine == "requests":
-            try:
-                response = requests.get(adress, headers=headers, timeout=7, allow_redirects=True)
-                if is_valid_profile(response):
-                    tqdm.write(f"{BLUE}[+] {GREEN}{name}: Link Found! --> {adress}")
-                    found_links.append((name, adress))
-                else:
-                    pass 
-            except requests.exceptions.Timeout:
-                print(f"{RED}[!] {name}: Timeout (Site did not respond)")
-            except requests.exceptions.ConnectionError:
-                print(f"{YELLOW}[!] {name}: Connection error")
-            except Exception as e:
-                print(f"{RED}[!] {name}: An error occurred -> {e}")
-
         if engine == "selenium":
             if check_selenium_profile(adress):
                 tqdm.write(f"{BLUE}[+] {GREEN}{name}: Link Found! --> {adress}")
@@ -437,21 +401,6 @@ def easyFinder(user):
         name = url["name"]
         adress = url["url"].format(user=user)
         engine = url.get("engine", "requests")
-        if engine == "requests":
-            try:
-                response = requests.get(adress, headers=headers, timeout=7, allow_redirects=True)
-                if response.status_code == 200:
-                    tqdm.write(f"{BLUE}[+] {GREEN}{name}: Link Found! --> {adress}")
-                    found_links.append((name, adress))
-                else:
-                    pass 
-            except requests.exceptions.Timeout:
-                print(f"{RED}[!] {name}: Timeout (Site did not respond)")
-            except requests.exceptions.ConnectionError:
-                print(f"{YELLOW}[!] {name}: Connection error")
-            except Exception as e:
-                print(f"{RED}[!] {name}: An error occurred -> {e}")
-
         if engine == "selenium":
             if check_selenium_profile(adress):
                 tqdm.write(f"{BLUE}[+] {GREEN}{name}: Link Found! --> {adress}")
@@ -474,9 +423,9 @@ def fileCreator(user):
 
 def clear():
     if platform.system() == "Windows":
-        subprocess.call("cls")
+        subprocess.call("cls", shell=True)
     else:
-        subprocess.call("clear")
+        subprocess.call("clear", shell=True)
 
 
 Start()
