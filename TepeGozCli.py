@@ -122,7 +122,6 @@ def get_platform_arch():
 
 
 def download_geckodriver(drivers_dir):
-    """Geckodriver'ı (Firefox) GitHub'dan indirir."""
     ext = ".exe" if platform.system() == "Windows" else ""
     gecko_path = os.path.join(drivers_dir, f"geckodriver{ext}")
     
@@ -346,7 +345,6 @@ def detect_browser():
             test_driver = _make_chrome_driver()
             test_driver.quit()
             ACTIVE_BROWSER = "chrome"
-            print(f"{GREEN}[+] Aktif tarayıcı: Chrome{RESET}")
             return "chrome"
         except Exception:
             pass
@@ -358,7 +356,6 @@ def detect_browser():
             test_driver = _make_firefox_driver(gecko_path)
             test_driver.quit()
             ACTIVE_BROWSER = "firefox"
-            print(f"{GREEN}[+] Aktif tarayıcı: Firefox{RESET}")
             return "firefox"
         except Exception:
             pass
@@ -1498,7 +1495,6 @@ def offer_auto_install():
     
     print(f"\n{BLUE}[?] Firefox otomatik kurulsun mu? (E/H): {RESET}", end="")
     choice = input().strip().lower()
-    
     if choice not in ['e', 'evet', 'y', 'yes']:
         return False
     
@@ -1523,10 +1519,13 @@ def offer_auto_install():
             if result.returncode == 0:
                 print(f"{GREEN}[+] Firefox kuruldu!{RESET}")
                 return True
+        time.sleep(2)
     except FileNotFoundError:
         print(f"{RED}[!] Paket yöneticisi bulunamadı (winget/brew){RESET}")
+        time.sleep(2)
     except Exception as e:
         print(f"{RED}[!] Kurulum hatası: {e}{RESET}")
+        time.sleep(2)
     
     return False
 
