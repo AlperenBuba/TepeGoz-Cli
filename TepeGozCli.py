@@ -3,6 +3,24 @@ import platform
 import sys
 import importlib.util
 
+if platform.system() == "Windows":
+    try:
+        import ctypes
+        # Kod sayfasını UTF-8 yap
+        ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+        ctypes.windll.kernel32.SetConsoleCP(65001)
+        # ANSI renk kodlarını aktifleştir
+        kernel32 = ctypes.windll.kernel32
+        kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
+    except Exception:
+        pass
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 GREEN = "\033[32m"
 RED = "\033[31m"
 YELLOW = "\033[33m"
@@ -13,24 +31,69 @@ gecikme = 1.2
 
 def check_requirements():
     if getattr(sys, 'frozen', False):
-        return
+        return  # PyInstaller exe → paketler zaten gömülü
+    
     required_packages = ["requests", "selenium", "tqdm"]
     missing_packages = []
-
+    
     for package in required_packages:
         if importlib.util.find_spec(package) is None:
             missing_packages.append(package)
+    
+    if not missing_packages:
+        return  # Her şey kurulu, sessizce devam et
+    
+    print(f"{RED}[!] Eksik paketler: {', '.join(missing_packages)}{RESET}")
+    print(f"{YELLOW}[!] Otomatik kurulum başlıyor...{RESET}")
+    
+    # ─── pip komutunu platforma göre oluştur ───
+    pip_cmd = [sys.executable, "-m", "pip", "install"]
+    
+    # Linux'ta PEP 668 için gerekli (Debian/Ubuntu)
+    if platform.system() == "Linux":
+        pip_cmd.append("--break-system-packages")
+    
+    pip_cmd.extend(missing_packages)
 
-    if missing_packages:
-        print(f"{RED}[!] Eksik paketler tespit edildi: {', '.join(missing_packages)}\n")
-        print(f"{YELLOW}[!] Bağımlılıklar kuruluyor...")
-        subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--break-system-packages"] + missing_packages,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+     # ─── Windows'ta konsol penceresini gizle ───
+    startupinfo = None
+    if platform.system() == "Windows":
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = 0  # SW_HIDE
+    
+    try:
+        # İlk deneme: sessiz kur
+        result = subprocess.run(
+            pip_cmd,
+            capture_output=True,
+            text=True,
+            timeout=300
         )
-    else:
-        print(f"{GREEN}[+] Tüm bağımlılıklar eksiksiz.")
+        
+        if result.returncode == 0:
+            print(f"{GREEN}[+] Paketler kuruldu: {', '.join(missing_packages)}{RESET}")
+        else:
+            # İkinci deneme: --user ile kur (izin sorunu olabilir)
+            print(f"{YELLOW}[!] Normal kurulum başarısız, --user deneniyor...{RESET}")
+            pip_cmd.insert(-len(missing_packages), "--user")
+            result2 = subprocess.run(pip_cmd, capture_output=True, text=True, timeout=300)
+            
+            if result2.returncode == 0:
+                print(f"{GREEN}[+] Paketler kuruldu (--user): {', '.join(missing_packages)}{RESET}")
+            else:
+                print(f"{RED}[!] Kurulum başarısız!{RESET}")
+                print(f"{YELLOW}Manuel kurun:{RESET}")
+                print(f"  {' '.join(pip_cmd)}")
+                print(f"{YELLOW}Hata:{RESET}")
+                print(result2.stderr[:500])
+                sys.exit(1)
+    except subprocess.TimeoutExpired:
+        print(f"{RED}[!] Kurulum zaman aşımına uğradı (5 dk).{RESET}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"{RED}[!] Kurulum hatası: {e}{RESET}")
+        sys.exit(1)
 
 
 from tqdm import tqdm
@@ -426,9 +489,11 @@ SITE_RULES = {
             "there's nothing here", "burada hiçbir şey yok",
             "not found", "sayfa bulunamadı", "page not found",
             "whatever you were looking for doesn't exist",
+            "blog not found", "there's nothing here yet",
         ],
-        "ok_signals": ["posts", "followers", "gönderi", "following", "takipçi"],
-        "og_type": None,
+        "ok_signals": ["posts", "followers", "gönderi", "following", "takipçi", "reblog"],
+        "og_type": "profile",
+        "blocked_titles": ["tumblr", "untitled"],
     },
     "snapchat.com": {
         "login_urls": ["/login", "/accounts/login"],
@@ -845,9 +910,12 @@ SITE_RULES = {
         "not_found": [
             "doesn't exist", "not found", "404",
             "bu site mevcut değil", "sayfa bulunamadı",
+            "the site you're looking for doesn't exist",
+            "we couldn't find that site",
         ],
         "ok_signals": ["followers", "posts", "takipçi", "gönderi", "following"],
-        "og_type": None,
+        "og_type": "website",   # WordPress blogu website olarak işaretlenir
+        "blocked_titles": ["wordpress.com", "wordpress"],
     },
     "blogspot.com": {
         "login_urls": [],
@@ -875,9 +943,11 @@ SITE_RULES = {
         "not_found": [
             "not found", "404", "page not found",
             "sayfa bulunamadı", "publication not found",
+            "we couldn't find that page",
         ],
         "ok_signals": ["subscribers", "posts", "abone", "gönderi", "following"],
-        "og_type": None,
+        "og_type": "website",
+        "blocked_titles": ["substack"],
     },
     "about.me": {
         "login_urls": ["/login", "/signup"],
@@ -1001,10 +1071,12 @@ SITE_RULES = {
         "login_urls": ["/giris", "/login"],
         "not_found": [
             "kullanıcı bulunamadı", "sayfa bulunamadı",
-            "404", "profil bulunamadı",
+            "404", "profil bulunamadı", "böyle bir kullanıcı yok",
+            "aradığınız kullanıcı bulunamadı",
         ],
-        "ok_signals": ["soru", "cevap", "takipçi", "profil"],
-        "og_type": None,
+        "ok_signals": ["soru", "cevap", "takipçi", "profil", "beğeni"],
+        "og_type": "profile",
+        "blocked_titles": ["kizlarsoruyor", "kızlar soruyor"],
     },
 
     # ═══════════════════════════════════════════════════════
@@ -1021,6 +1093,17 @@ SITE_RULES = {
         "not_found": ["not found", "404", "page not found"],
         "ok_signals": ["posts", "threads", "replies"],
         "og_type": None,
+    },
+    "producthunt.com": {
+        "login_urls": ["/login", "/signup"],
+        "not_found": [
+            "not found", "404", "page not found",
+            "sayfa bulunamadı", "we couldn't find that page",
+            "user not found", "kullanıcı bulunamadı",
+        ],
+        "ok_signals": ["followers", "upvotes", "takipçi", "following", "maker"],
+        "og_type": "profile",
+        "blocked_titles": ["product hunt", "producthunt"],
     },
 }
 
@@ -1223,47 +1306,30 @@ def tr_to_en(text):
     return text.translate(TR_TO_EN)
 
 def versionCreator(name):
-    ciktilar = []
+    ciktilar = set()
     username = name
+    username_en = tr_to_en(name)
 
-    for characters in Extra_characters:
-        cikti = f"{username.replace(' ', '')}"
-        ciktilar.append(cikti)
+    for base in [username, username_en]:
+        no_space = base.replace(' ', '')
+        with_dot = base.replace(' ', '.')
+        with_us  = base.replace(' ', '_')
 
-    for characters in Extra_characters:
-        if characters in ".":
-            continue
-        cikti = f"{username.replace(' ', characters)}"
-        ciktilar.append(cikti)
+        # Düz varyantlar
+        ciktilar.add(no_space)
+        ciktilar.add(with_dot)
+        ciktilar.add(with_us)
 
-    for characters in Extra_characters:
-        if characters in ".":
-            continue
-        cikti = f"{characters}{username.replace(' ', '')}{characters}"
-        ciktilar.append(cikti)
+        # Baş/son "_" ile
+        ciktilar.add(f"_{no_space}_")
+        ciktilar.add(f"_{with_dot}_")
+        ciktilar.add(f"_{with_us}_")
 
-    for characters in Extra_characters:
-        cikti = f"{characters if characters != '.' else ''}{username.replace(' ', characters)}{characters if characters != '.' else ''}"
-        ciktilar.append(cikti)
+        # Baş/son "_", orta "_" veya "." (nokta BAŞA/SONA değil, sadece ORTAYA)
+        ciktilar.add(f"_{no_space}_")
+        ciktilar.add(f"_{with_dot}_")
 
-    username_en = tr_to_en(username)
-    for characters in Extra_characters:
-        cikti = f"{username_en.replace(' ', '')}"
-        ciktilar.append(cikti)
-
-    for characters in Extra_characters:
-        cikti = f"{username_en.replace(' ', characters)}"
-        ciktilar.append(cikti)
-
-    for characters in Extra_characters:
-        cikti = f"{characters}{username_en.replace(' ', '')}{characters}"
-        ciktilar.append(cikti)
-
-    for characters in Extra_characters:
-        cikti = f"{characters if characters != '.' else ''}{username_en.replace(' ', characters)}{characters if characters != '.' else ''}"
-        ciktilar.append(cikti)
-
-    return list(set(ciktilar))
+    return list(ciktilar)
 
 
 def finder(user):
