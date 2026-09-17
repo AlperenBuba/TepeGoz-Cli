@@ -1529,44 +1529,6 @@ def offer_auto_install():
     
     return False
 
-def print_browser_help():
-    system = platform.system()
-    
-    print(f"\n{RED}╔══════════════════════════════════════════════════════╗{RESET}")
-    print(f"{RED}║  TARAYICI BULUNAMADI                                 ║{RESET}")
-    print(f"{RED}╚══════════════════════════════════════════════════════╝{RESET}")
-    print(f"\n{YELLOW}Bu program Chrome veya Firefox tarayıcılarından{RESET}")
-    print(f"{YELLOW}en az birine ihtiyaç duyar. Sisteminizde hiçbiri kurulu değil.{RESET}")
-    
-    print(f"\n{BLUE}━━━ Nasıl kurulur? ━━━{RESET}\n")
-    
-    if system == "Windows":
-        print(f"{GREEN}Windows'ta (PowerShell):{RESET}")
-        print(f"  {BLUE}winget install Google.Chrome{RESET}       (Önerilen - hızlı)")
-        print(f"  {BLUE}winget install Mozilla.Firefox{RESET}     (ARM uyumlu)")
-        print(f"  {BLUE}winget install Microsoft.Edge{RESET}      (Windows'ta genelde hazır)")
-    elif system == "Darwin":
-        print(f"{GREEN}macOS'ta (Terminal):{RESET}")
-        print(f"  {BLUE}brew install --cask firefox{RESET}       (Önerilen - hızlı, hafif)")
-        print(f"  {BLUE}brew install --cask google-chrome{RESET}")
-    elif system == "Linux":
-        print(f"{GREEN}Linux'ta:{RESET}")
-        print(f"  {BLUE}sudo apt install chromium-browser{RESET}   (Debian/Ubuntu)")
-        print(f"  {BLUE}sudo dnf install chromium{RESET}          (Fedora)")
-        print(f"  {BLUE}sudo pacman -S chromium{RESET}            (Arch)")
-    else:
-        print(f"{GREEN}Tarayıcı kur:{RESET}")
-        print(f"  Chrome, Edge veya Firefox'tan birini kur")
-    
-    print(f"\n{BLUE}━━━ Kurulum sonrası ━━━{RESET}")
-    print(f"  Programı yeniden başlat — driver otomatik inecek.\n")
-    
-    print(f"{YELLOW}[i] Not: Windows ARM için Mozilla Firefox önerilir.{RESET}")
-    print(f"{YELLOW}    Edge ARM'da headless mod bazen sorun çıkarır.{RESET}\n")
-
-    if offer_auto_install():
-        sys.exit(0)
-
 def Start():
     clear()
     print(menu_header)
@@ -1622,6 +1584,44 @@ def Start():
         found_links.append((f"{name} ({variant})", url))
 
     fileCreator(username)
+
+def print_browser_help():
+    system = platform.system()
+    
+    print(f"\n{RED}╔══════════════════════════════════════════════════════╗{RESET}")
+    print(f"{RED}║  TARAYICI BULUNAMADI                                 ║{RESET}")
+    print(f"{RED}╚══════════════════════════════════════════════════════╝{RESET}")
+    print(f"\n{YELLOW}Bu program Chrome veya Firefox tarayıcılarından{RESET}")
+    print(f"{YELLOW}en az birine ihtiyaç duyar. Sisteminizde hiçbiri kurulu değil.{RESET}")
+    
+    print(f"\n{BLUE}━━━ Nasıl kurulur? ━━━{RESET}\n")
+    
+    if system == "Windows":
+        print(f"{GREEN}Windows'ta (PowerShell):{RESET}")
+        print(f"  {BLUE}winget install Google.Chrome{RESET}       (Önerilen - hızlı)")
+        print(f"  {BLUE}winget install Mozilla.Firefox{RESET}     (ARM uyumlu)")
+        print(f"  {BLUE}winget install Microsoft.Edge{RESET}      (Windows'ta genelde hazır)")
+    elif system == "Darwin":
+        print(f"{GREEN}macOS'ta (Terminal):{RESET}")
+        print(f"  {BLUE}brew install --cask firefox{RESET}       (Önerilen - hızlı, hafif)")
+        print(f"  {BLUE}brew install --cask google-chrome{RESET}")
+    elif system == "Linux":
+        print(f"{GREEN}Linux'ta:{RESET}")
+        print(f"  {BLUE}sudo apt install chromium-browser{RESET}   (Debian/Ubuntu)")
+        print(f"  {BLUE}sudo dnf install chromium{RESET}          (Fedora)")
+        print(f"  {BLUE}sudo pacman -S chromium{RESET}            (Arch)")
+    else:
+        print(f"{GREEN}Tarayıcı kur:{RESET}")
+        print(f"  Chrome, Edge veya Firefox'tan birini kur")
+    
+    print(f"\n{BLUE}━━━ Kurulum sonrası ━━━{RESET}")
+    print(f"  Programı yeniden başlat — driver otomatik inecek.\n")
+    
+    print(f"{YELLOW}[i] Not: Windows ARM için Mozilla Firefox önerilir.{RESET}")
+    print(f"{YELLOW}    Edge ARM'da headless mod bazen sorun çıkarır.{RESET}\n")
+
+    if offer_auto_install():
+        Start()
 
 TR_TO_EN = str.maketrans({
     "ç": "c", "Ç": "c",
