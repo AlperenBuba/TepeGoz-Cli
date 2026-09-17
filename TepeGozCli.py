@@ -9,7 +9,7 @@ YELLOW = "\033[33m"
 BLUE = "\033[94m"
 RESET = "\033[0m"
 
-gecikme = 2.5
+gecikme = 1.2
 
 def check_requirements():
     if getattr(sys, 'frozen', False):
@@ -31,7 +31,7 @@ def check_requirements():
         )
     else:
         print(f"{GREEN}[+] Tüm bağımlılıklar eksiksiz.")
-check_requirements()
+
 
 from tqdm import tqdm
 import time
@@ -53,7 +53,17 @@ def get_smart_driver():
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
-        
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-plugins")
+        options.add_argument("--disable-images")           # Resim yükleme (OSINT için gereksiz)
+        options.add_argument("--blink-settings=imagesEnabled=false")
+        options.add_argument("--disable-software-rasterizer")
+        options.add_argument("--disable-background-networking")
+        options.add_argument("--disable-sync")
+        options.add_argument("--metrics-recording-only")
+        options.add_argument("--mute-audio")
+        options.add_argument("--no-first-run")
+        options.add_argument("--disable-default-apps")
         # Otomasyon izlerini gizleyen kritik bayraklar
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
@@ -87,7 +97,6 @@ def get_smart_driver():
 
     # 3. Firefox'u denetle
     try:
-        options.page_load_strategy = "eager"
         from selenium.webdriver.firefox.options import Options as FirefoxOptions
         options = FirefoxOptions()
         options.add_argument("-headless")
@@ -109,16 +118,86 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, WebDriverException
 import time
+from multiprocessing import Pool
+
+def get_worker_count():
+    """Sistem RAM'ine göre güvenli worker sayısını döner."""
+    total_gb = None
+
+    # 1) psutil varsa en doğru bilgi
+    try:
+        import psutil
+        total_gb = psutil.virtual_memory().total / (1024 ** 3)
+    except ImportError:
+        pass
+
+    # 2) psutil yoksa platforma göre tahmin
+    if total_gb is None:
+        system = platform.system()
+        if system == "Darwin":       # macOS genelde 8+ GB
+            total_gb = 8
+        elif system == "Windows":
+            total_gb = 8
+        elif system == "Linux":
+            total_gb = 4              # muhafazakâr varsayım
+        else:
+            total_gb = 4
+
+    # 3) RAM'e göre worker
+    if total_gb >= 16:
+        workers = 6
+    elif total_gb >= 12:
+        workers = 5
+    elif total_gb >= 8:
+        workers = 4
+    elif total_gb >= 6:
+        workers = 3
+    elif total_gb >= 4:
+        workers = 2
+    else:
+        workers = 1                   # 2 GB ve altı → tek process
+
+    print(f"{BLUE}[i] Sistem RAM: ~{total_gb:.1f} GB → {workers} paralel worker{RESET}")
+    return workers
+
+def check_one_mp(args):
+    name, variant, url = args
+    driver = None
+    try:
+        driver = get_smart_driver()
+        if not driver:
+            return None
+        result = check_selenium_profile(driver, url)
+        return (name, variant, url) if result else None
+    except Exception:
+        return None
+    finally:
+        if driver:
+            try:
+                driver.quit()
+            except Exception:
+                pass
+
+
+def parallel_scan(tasks, workers=3):
+    results = []
+    with Pool(processes=workers) as pool:
+        for r in tqdm(pool.imap_unordered(check_one_mp, tasks),
+                      total=len(tasks), desc="[+] Tarıyor", colour="green"):
+            if r:
+                results.append(r)
+                tqdm.write(f"{GREEN}[+] {r[0]} ({r[1]}): Link Found! --> {r[2]}{RESET}")
+    return results
 
 def check_selenium_profile(driver, url):
     try:
-        driver.set_page_load_timeout(20)
+        driver.set_page_load_timeout(12)
         try:
             driver.get(url)
             try:
                 # DOM hazır olana kadar bekle (resim, CSS, iframe bekleme)
                 WebDriverWait(driver, 10).until(
-                    lambda d: d.execute_script("return document.readyState") == "complete"
+                    lambda d: d.execute_script("return document.readyState") in ("interactive", "complete")
                 )
             except Exception:
                 pass # Zaman aşımı olursa devam et
@@ -132,7 +211,7 @@ def check_selenium_profile(driver, url):
         except Exception:
             pass
 
-        time.sleep(2.5)
+        time.sleep(1.2)
 
         title = (driver.title or "").lower().strip()
         current_url = (driver.current_url or "").lower()
@@ -374,11 +453,9 @@ SITE_RULES = {
     "twitch.tv": {
         "login_urls": ["/login"],
         "not_found": [
-            # İngilizce
             "sorry. unless you've got a time machine",
             "channel not found",
             "this channel is currently unavailable",
-            # Türkçe (eklendi)
             "bir zaman makinesine sahip değilseniz",
             "bu içerik artık ulaşılamaz",
             "üzgünüz. bir zaman makinesine",
@@ -387,6 +464,7 @@ SITE_RULES = {
         ],
         "ok_signals": ["followers", "takipçi", "follow", "viewers"],
         "og_type": None,
+        "require_og_title_not": ["twitch"],   # ← EKLE
     },
     "pinterest.com": {
         "login_urls": ["/login"],
@@ -654,31 +732,23 @@ def Start():
     except NameError:
         return 0
 
-    driver = get_smart_driver()
-    if not driver:
-        print(f"{RED}[!] Tarayıcı başlatılamadı.{RESET}")
-        return
+    tasks = []
+    for variant in variants:
+        for url_item in target_urls:
+            engine = url_item.get("engine", "requests")
+            if engine == "selenium":
+                tasks.append((
+                    url_item["name"],
+                    variant,
+                    url_item["url"].format(user=variant)
+                ))
 
-    total_steps = len(variants) * len(target_urls)
-    try:
-        with tqdm(total=total_steps, desc=desc_text, colour="green") as pbar:
-            for variant in variants:
-                for url_item in target_urls:
-                    name = url_item["name"]
-                    adress = url_item["url"].format(user=variant)
-                    engine = url_item.get("engine", "requests")
-                    if engine == "selenium":
-                        if check_selenium_profile(driver, adress):
-                            tqdm.write(f"{BLUE}[+] {GREEN}{name} ({variant}): Link Found! --> {adress}")
-                            found_links.append((name, adress))
-                    else:
-                        pass
-                    pbar.update(1)
-    finally:
-        try:
-            driver.quit()
-        except Exception:
-            pass
+    # ─── 2) Paralel tarama ───
+    results = parallel_scan(tasks, workers=3)
+
+    # ─── 3) Bulunanları kaydet ───
+    for name, variant, url in results:
+        found_links.append((f"{name} ({variant})", url))
 
     fileCreator(username)
 
@@ -716,7 +786,7 @@ def versionCreator(name):
         ciktilar.append(cikti)
 
     for characters in Extra_characters:
-        cikti = f"{characters}{username.replace(' ', characters)}{characters}"
+        cikti = f"{characters if characters != '.' else ''}{username.replace(' ', characters)}{characters if characters != '.' else ''}"
         ciktilar.append(cikti)
 
     username_en = tr_to_en(username)
@@ -733,7 +803,7 @@ def versionCreator(name):
         ciktilar.append(cikti)
 
     for characters in Extra_characters:
-        cikti = f"{characters}{username_en.replace(' ', characters)}{characters}"
+        cikti = f"{characters if characters != '.' else ''}{username_en.replace(' ', characters)}{characters if characters != '.' else ''}"
         ciktilar.append(cikti)
 
     return list(set(ciktilar))
@@ -781,4 +851,6 @@ def clear():
         subprocess.call("clear", shell=True)
 
 
-Start()
+if __name__ == "__main__":
+    check_requirements()
+    Start()
