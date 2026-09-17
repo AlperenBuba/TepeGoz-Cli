@@ -305,6 +305,9 @@ Extra_characters = ["_", "."]
 #   require_og  : (opsiyonel) og:title zorunlu mu? (default True)
 # ============================================================
 SITE_RULES = {
+    # ═══════════════════════════════════════════════════════
+    # SOSYAL MEDYA
+    # ═══════════════════════════════════════════════════════
     "facebook.com": {
         "login_urls": ["/login", "/r.php", "/checkpoint", "/recover"],
         "not_found": [
@@ -324,81 +327,48 @@ SITE_RULES = {
             "üzgünüz, bu sayfaya ulaşılamıyor", "tıklandığın bağlantı bozuk olabilir",
             "sayfa kaldırılmış olabilir", "sorry, this page isn't available",
             "the link you followed may be broken", "page not found", "sayfa bulunamadı",
+            "page not found • instagram",
         ],
-        "ok_signals": ["followers", "takipçi", "posts", "gönderi", "following", "takip"],
+        "ok_signals": [
+            "followers", "takipçi", "posts", "gönderi", "following", "takip",
+            "see instagram photos and videos",
+        ],
         "og_type": "profile",
+        "blocked_titles": ["page not found • instagram"],
     },
     "threads.net": {
         "login_urls": ["/login", "/accounts/login"],
         "not_found": [
-            # Türkçe
-            "üzgünüz, bu sayfa kullanılamıyor",
-            "üzgünüz, bu içerik kullanılamıyor",
-            "bu sayfa mevcut değil",
-            "kullanıcı bulunamadı",
-            "sayfa bulunamadı",
-            # İngilizce
-            "sorry, this page isn't available",
-            "this page isn't available",
-            "sorry, this content isn't available",
-            "user not found",
-            "page not found",
+            "üzgünüz, bu sayfa kullanılamıyor", "üzgünüz, bu içerik kullanılamıyor",
+            "bu sayfa mevcut değil", "kullanıcı bulunamadı", "sayfa bulunamadı",
+            "sorry, this page isn't available", "this page isn't available",
+            "sorry, this content isn't available", "user not found", "page not found",
         ],
         "ok_signals": ["followers", "takipçi", "threads", "following", "takip"],
         "og_type": "profile",
         "blocked_titles": ["threads", "threads • giriş yap"],
     },
-    "threads.com": {  # Threads'in yeni domaini
+    "threads.com": {
         "login_urls": ["/login", "/accounts/login"],
         "not_found": [
-            "üzgünüz, bu sayfa kullanılamıyor",
-            "üzgünüz, bu içerik kullanılamıyor",
-            "bu sayfa mevcut değil",
-            "kullanıcı bulunamadı",
-            "sorry, this page isn't available",
-            "user not found",
-            "page not found",
+            "üzgünüz, bu sayfa kullanılamıyor", "üzgünüz, bu içerik kullanılamıyor",
+            "bu sayfa mevcut değil", "kullanıcı bulunamadı", "sayfa bulunamadı",
+            "sorry, this page isn't available", "user not found", "page not found",
         ],
         "ok_signals": ["followers", "takipçi", "threads", "following", "takip"],
         "og_type": "profile",
         "blocked_titles": ["threads", "threads • giriş yap"],
-    },
-    "youtube.com": {
-        "login_urls": [],
-        "not_found": [
-            "this channel doesn't exist", "this page isn't available",
-            "bu kanal mevcut değil", "bu sayfa kullanılamıyor",
-        ],
-        "ok_signals": ["subscriber", "abone", "video", "kanal", "channel"],
-        "og_type": None,
-    },
-    "tiktok.com": {
-        "login_urls": ["/login"],
-        "not_found": [
-            "couldn't find this account", "bu hesabı bulamadık",
-            "sayfa mevcut değil", "page not available", "video currently unavailable",
-        ],
-        "ok_signals": ["followers", "takipçi", "likes", "beğeni", "following"],
-        "og_type": None,
     },
     "twitter.com": {
         "login_urls": ["/i/flow/login", "/login", "/i/flow/signup"],
         "not_found": [
             "this account doesn't exist", "bu hesap mevcut değil",
             "account doesn't exist", "hesap bulunamadı",
-            "hmm...this page doesn't exist",
-            "bu sayfa mevcut değil",
-            # Login wall (sayfa içeriğinde)
-            "neler olduğunu gör",
-            "aşağıdaki seçeneği seçin",
-            "telefon ile devam et",
-            "google ile devam et",
-            "apple ile devam et",
-            "see what's happening",
-            "sign in to x",
-            "sign in to twitter",
-            "hesap oluştur",
-            "log in",
+            "hmm...this page doesn't exist", "bu sayfa mevcut değil",
+            "neler olduğunu gör", "aşağıdaki seçeneği seçin",
+            "telefon ile devam et", "google ile devam et", "apple ile devam et",
+            "see what's happening", "sign in to x", "sign in to twitter",
+            "hesap oluştur", "log in",
         ],
         "ok_signals": ["followers", "takipçi", "following", "tweets", "gönderi"],
         "blocked_titles": [
@@ -408,20 +378,26 @@ SITE_RULES = {
         ],
         "og_type": None,
     },
-    "x.com": {  # Twitter'ın yeni domaini
+    "x.com": {
         "login_urls": ["/i/flow/login", "/login", "/i/flow/signup"],
         "not_found": [
             "this account doesn't exist", "bu hesap mevcut değil",
-            "neler olduğunu gör",
-            "aşağıdaki seçeneği seçin",
-            "telefon ile devam et",
-            "google ile devam et",
-            "apple ile devam et",
-            "see what's happening",
-            "sign in to x",
+            "neler olduğunu gör", "aşağıdaki seçeneği seçin",
+            "telefon ile devam et", "google ile devam et", "apple ile devam et",
+            "see what's happening", "sign in to x",
         ],
         "ok_signals": ["followers", "following", "tweets"],
         "blocked_titles": ["x. it's what's happening"],
+        "og_type": None,
+    },
+    "tiktok.com": {
+        "login_urls": ["/login"],
+        "not_found": [
+            "couldn't find this account", "bu hesabı bulamadık",
+            "sayfa mevcut değil", "page not available", "video currently unavailable",
+            "this user doesn't exist", "bu kullanıcı mevcut değil",
+        ],
+        "ok_signals": ["followers", "takipçi", "likes", "beğeni", "following", "videos"],
         "og_type": None,
     },
     "linkedin.com": {
@@ -429,16 +405,50 @@ SITE_RULES = {
         "not_found": [
             "page not found", "sayfa bulunamadı", "profile not found",
             "this page doesn't exist", "bu sayfa mevcut değil",
+            "bu profil bulunamadı", "profile not found",
         ],
         "ok_signals": ["connections", "bağlantı", "followers", "takipçi", "experience"],
         "og_type": "profile",
-        "blocked_titles": ["linkedin: log in or sign up", "giriş yap"],
+        "blocked_titles": ["linkedin: log in or sign up", "giriş yap", "sign up"],
     },
-    "github.com": {
-        "login_urls": [],
-        "not_found": ["page not found", "sayfa bulunamadı", "404"],
-        "ok_signals": ["repositories", "followers", "following", "depo", "takipçi"],
+    "pinterest.com": {
+        "login_urls": ["/login"],
+        "not_found": [
+            "user not found", "kullanıcı bulunamadı", "page not found",
+            "sayfa bulunamadı", "sorry! we couldn't find that user",
+        ],
+        "ok_signals": ["followers", "takipçi", "pins", "following", "boards"],
         "og_type": "profile",
+    },
+    "tumblr.com": {
+        "login_urls": [],
+        "not_found": [
+            "there's nothing here", "burada hiçbir şey yok",
+            "not found", "sayfa bulunamadı", "page not found",
+            "whatever you were looking for doesn't exist",
+        ],
+        "ok_signals": ["posts", "followers", "gönderi", "following", "takipçi"],
+        "og_type": None,
+    },
+    "snapchat.com": {
+        "login_urls": ["/login", "/accounts/login"],
+        "not_found": [
+            "üzgünüz, bu içerik bulunamadı", "bu içerik bulunamadı",
+            "üzgünüz", "kullanıcı bulunamadı",
+            "this username does not exist", "sorry, we couldn't find that user",
+            "user not found", "content not found", "sorry, this content couldn't be found",
+        ],
+        "ok_signals": ["bitmoji", "snapcode", "hikaye", "story", "arkadaş ekle"],
+        "og_type": None,
+    },
+    "t.me": {
+        "login_urls": [],
+        "not_found": [
+            "sorry, this username is invalid", "kullanıcı adı geçersiz",
+        ],
+        "ok_signals": ["telegram", "members", "üye", "subscribers", "abone", "preview"],
+        "og_type": None,
+        "require_og_title_not": ["telegram", "telegram messenger"],
     },
     "reddit.com": {
         "login_urls": ["/login"],
@@ -454,39 +464,260 @@ SITE_RULES = {
         "login_urls": ["/login"],
         "not_found": [
             "sorry. unless you've got a time machine",
-            "channel not found",
-            "this channel is currently unavailable",
+            "channel not found", "this channel is currently unavailable",
             "bir zaman makinesine sahip değilseniz",
-            "bu içerik artık ulaşılamaz",
-            "üzgünüz. bir zaman makinesine",
-            "kanal mevcut değil",
-            "bu kanal şu anda kullanılamıyor",
+            "bu içerik artık ulaşılamaz", "üzgünüz. bir zaman makinesine",
+            "kanal mevcut değil", "bu kanal şu anda kullanılamıyor",
         ],
         "ok_signals": ["followers", "takipçi", "follow", "viewers"],
         "og_type": None,
-        "require_og_title_not": ["twitch"],   # ← EKLE
+        "require_og_title_not": ["twitch"],
     },
-    "pinterest.com": {
-        "login_urls": ["/login"],
-        "not_found": ["user not found", "kullanıcı bulunamadı", "page not found"],
-        "ok_signals": ["followers", "takipçi", "pins", "following"],
-        "og_type": "profile",
-    },
-    "tumblr.com": {
+    "youtube.com": {
         "login_urls": [],
         "not_found": [
-            "there's nothing here", "burada hiçbir şey yok",
-            "not found", "sayfa bulunamadı",
+            "this channel doesn't exist", "this page isn't available",
+            "bu kanal mevcut değil", "bu sayfa kullanılamıyor",
+            "404 - youtube", "channel not found",
         ],
-        "ok_signals": ["posts", "followers", "gönderi"],
+        "ok_signals": ["subscriber", "abone", "video", "kanal", "channel"],
         "og_type": None,
     },
-    "spotify.com": {
+    "vk.com": {
         "login_urls": ["/login"],
-        "not_found": ["page not found", "sayfa bulunamadı", "couldn't find"],
-        "ok_signals": ["followers", "takipçi", "playlists", "public playlists"],
+        "not_found": ["page not found", "sayfa bulunamadı", "страница не найдена"],
+        "ok_signals": ["followers", "friends", "arkadaş", "подписчики", "друзья"],
         "og_type": "profile",
     },
+
+    # ═══════════════════════════════════════════════════════
+    # VİDEO / FOTOĞRAF / YARATICI
+    # ═══════════════════════════════════════════════════════
+    "vimeo.com": {
+        "login_urls": ["/log_in", "/login", "/join"],
+        "not_found": [
+            "sorry, we couldn't find that page",
+            "we couldn't find that page",
+            "make sure you've typed the url correctly",
+            "page not found", "sayfa bulunamadı", "bu sayfa bulunamadı",
+        ],
+        "ok_signals": ["followers", "takipçi", "videos", "following", "videolar", "likes"],
+        "og_type": "profile",
+        "blocked_titles": ["vimeo"],
+    },
+    "flickr.com": {
+        "login_urls": ["/signin", "/login"],
+        "not_found": [
+            "this user is not available", "kullanıcı bulunamadı",
+            "page not found", "sayfa bulunamadı",
+            "sorry, we can't find that page",
+        ],
+        "ok_signals": ["photos", "followers", "takipçi", "following", "fotolar"],
+        "og_type": "profile",
+    },
+    "deviantart.com": {
+        "login_urls": ["/users/login", "/join"],
+        "not_found": [
+            "page not found", "sayfa bulunamadı",
+            "the page you're looking for doesn't exist",
+            "sorry, this page isn't available",
+        ],
+        "ok_signals": ["watchers", "followers", "deviations", "takipçi", "gallery"],
+        "og_type": "profile",
+    },
+    "behance.net": {
+        "login_urls": ["/login", "/signup"],
+        "not_found": [
+            "page not found", "sayfa bulunamadı",
+            "we couldn't find that page", "404",
+        ],
+        "ok_signals": ["followers", "takipçi", "projects", "appreciations", "following"],
+        "og_type": "profile",
+    },
+    "dribbble.com": {
+        "login_urls": ["/session/new", "/signup"],
+        "not_found": ["page not found", "sayfa bulunamadı", "404", "not found"],
+        "ok_signals": ["followers", "takipçi", "shots", "likes", "following"],
+        "og_type": "profile",
+    },
+    "imgur.com": {
+        "login_urls": ["/signin", "/register"],
+        "not_found": [
+            "not found", "user not found", "kullanıcı bulunamadı",
+            "this user does not exist", "page not found",
+        ],
+        "ok_signals": ["posts", "followers", "takipçi", "comments", "gönderi"],
+        "og_type": None,
+    },
+    "giphy.com": {
+        "login_urls": ["/login", "/join"],
+        "not_found": ["not found", "page not found", "404", "bu sayfa bulunamadı"],
+        "ok_signals": ["followers", "takipçi", "gifs", "following", "views"],
+        "og_type": None,
+    },
+
+    # ═══════════════════════════════════════════════════════
+    # GELİŞTİRİCİ / KOD
+    # ═══════════════════════════════════════════════════════
+    "github.com": {
+        "login_urls": [],
+        "not_found": ["page not found", "sayfa bulunamadı", "404"],
+        "ok_signals": ["repositories", "followers", "following", "depo", "takipçi"],
+        "og_type": "profile",
+    },
+    "gitlab.com": {
+        "login_urls": ["/users/sign_in"],
+        "not_found": [
+            "the page could not be found", "404", "page not found",
+            "sayfa bulunamadı",
+        ],
+        "ok_signals": ["followers", "projects", "activity", "takipçi", "contributions"],
+        "og_type": "profile",
+    },
+    "bitbucket.org": {
+        "login_urls": ["/account/signin"],
+        "not_found": ["404", "not found", "page not found", "sayfa bulunamadı"],
+        "ok_signals": ["repositories", "followers", "workspace", "takipçi"],
+        "og_type": "profile",
+    },
+    "stackoverflow.com": {
+        "login_urls": ["/users/login"],
+        "not_found": [
+            "page not found", "user not found", "kullanıcı bulunamadı",
+            "sayfa bulunamadı", "this user doesn't exist",
+        ],
+        "ok_signals": ["reputation", "badges", "questions", "answers", "itibar"],
+        "og_type": None,
+    },
+    "dev.to": {
+        "login_urls": ["/enter", "/users/sign_in"],
+        "not_found": ["404", "not found", "page not found", "sayfa bulunamadı"],
+        "ok_signals": ["followers", "posts", "articles", "takipçi", "following"],
+        "og_type": "profile",
+    },
+    "hackerrank.com": {
+        "login_urls": ["/login", "/auth/login"],
+        "not_found": [
+            "page not found", "couldn't find", "user not found",
+            "sayfa bulunamadı", "kullanıcı bulunamadı",
+        ],
+        "ok_signals": ["followers", "badges", "score", "takipçi", "submissions"],
+        "og_type": None,
+    },
+    "leetcode.com": {
+        "login_urls": ["/accounts/login"],
+        "not_found": [
+            "page not found", "user doesn't exist", "not found",
+            "sayfa bulunamadı", "kullanıcı bulunamadı",
+        ],
+        "ok_signals": ["submissions", "reputation", "followers", "solved", "takipçi"],
+        "og_type": None,
+    },
+    "codewars.com": {
+        "login_urls": ["/users/sign_in"],
+        "not_found": [
+            "404", "we couldn't find", "page not found", "sayfa bulunamadı",
+        ],
+        "ok_signals": ["kata", "rank", "honor", "followers", "takipçi"],
+        "og_type": None,
+    },
+    "hub.docker.com": {
+        "login_urls": ["/login", "/u/login"],
+        "not_found": ["not found", "404", "page not found", "sayfa bulunamadı"],
+        "ok_signals": ["repositories", "stars", "pulls", "takipçi"],
+        "og_type": None,
+    },
+    "pypi.org": {
+        "login_urls": ["/account/login"],
+        "not_found": ["404", "not found", "page not found", "sayfa bulunamadı"],
+        "ok_signals": ["projects", "packages", "releases"],
+        "og_type": None,
+    },
+    "npmjs.com": {
+        "login_urls": ["/login"],
+        "not_found": ["404", "not found", "page not found", "sayfa bulunamadı"],
+        "ok_signals": ["packages", "followers", "takipçi", "downloads"],
+        "og_type": None,
+    },
+    "rubygems.org": {
+        "login_urls": ["/login", "/sign_in"],
+        "not_found": [
+            "page not found", "couldn't find", "not found",
+            "sayfa bulunamadı", "kullanıcı bulunamadı",
+        ],
+        "ok_signals": ["gems", "downloads", "followers", "takipçi"],
+        "og_type": None,
+    },
+    "codepen.io": {
+        "login_urls": ["/login", "/signup"],
+        "not_found": ["404", "page not found", "not found", "sayfa bulunamadı"],
+        "ok_signals": ["pens", "followers", "hearts", "takipçi", "following"],
+        "og_type": "profile",
+    },
+    "replit.com": {
+        "login_urls": ["/login", "/signup"],
+        "not_found": [
+            "404", "not found", "user not found",
+            "kullanıcı bulunamadı", "sayfa bulunamadı",
+        ],
+        "ok_signals": ["followers", "repls", "takipçi", "following"],
+        "og_type": "profile",
+    },
+    "keybase.io": {
+        "login_urls": ["/login"],
+        "not_found": ["not found", "user not found", "kullanıcı bulunamadı", "404"],
+        "ok_signals": ["proofs", "followers", "bitcoin", "takipçi", "pgp"],
+        "og_type": None,
+    },
+    "gravatar.com": {
+        "login_urls": ["/connect"],
+        "not_found": ["not found", "404", "page not found", "sayfa bulunamadı"],
+        "ok_signals": ["profile", "photos", "profile photo"],
+        "og_type": None,
+    },
+    "pastebin.com": {
+        "login_urls": ["/login"],
+        "not_found": ["not found", "404", "user not found", "kullanıcı bulunamadı"],
+        "ok_signals": ["pastes", "followers", "takipçi"],
+        "og_type": None,
+    },
+    "hackerone.com": {
+        "login_urls": ["/users/sign_in"],
+        "not_found": ["not found", "404", "user not found", "kullanıcı bulunamadı"],
+        "ok_signals": ["reputation", "reports", "followers", "itibar", "takipçi"],
+        "og_type": "profile",
+    },
+    "bugcrowd.com": {
+        "login_urls": ["/login"],
+        "not_found": ["not found", "404", "user not found", "kullanıcı bulunamadı"],
+        "ok_signals": ["reputation", "points", "rank", "itibar"],
+        "og_type": "profile",
+    },
+    "angel.co": {
+        "login_urls": ["/login", "/signup"],
+        "not_found": ["not found", "404", "page not found", "sayfa bulunamadı"],
+        "ok_signals": ["followers", "investments", "takipçi"],
+        "og_type": "profile",
+    },
+    "crunchbase.com": {
+        "login_urls": ["/login", "/register"],
+        "not_found": ["not found", "404", "page not found", "sayfa bulunamadı"],
+        "ok_signals": ["investments", "followers", "takipçi", "experience"],
+        "og_type": "profile",
+    },
+    "xing.com": {
+        "login_urls": ["/login", "/signup"],
+        "not_found": [
+            "not found", "404", "kullanıcı bulunamadı",
+            "sayfa bulunamadı", "profil bulunamadı",
+        ],
+        "ok_signals": ["followers", "contacts", "takipçi", "bağlantı"],
+        "og_type": "profile",
+    },
+
+    # ═══════════════════════════════════════════════════════
+    # OYUN
+    # ═══════════════════════════════════════════════════════
     "steamcommunity.com": {
         "login_urls": [],
         "not_found": [
@@ -496,73 +727,299 @@ SITE_RULES = {
         "ok_signals": ["games", "oyun", "friends", "arkadaş", "badges"],
         "og_type": "profile",
     },
-    "medium.com": {
+    "xboxgamertag.com": {
         "login_urls": [],
-        "not_found": ["404", "out of nothing, something", "page not found"],
-        "ok_signals": ["followers", "takipçi", "following", "stories"],
-        "og_type": "profile",
+        "not_found": [
+            "not found", "no results", "404",
+            "sonuç bulunamadı", "kullanıcı bulunamadı",
+        ],
+        "ok_signals": ["gamerscore", "achievements", "friends", "arkadaş", "games"],
+        "og_type": None,
     },
-    "vk.com": {
+    "psnprofiles.com": {
         "login_urls": ["/login"],
-        "not_found": ["page not found", "sayfa bulunamadı"],
-        "ok_signals": ["followers", "friends", "arkadaş", "подписчики"],
-        "og_type": "profile",
+        "not_found": [
+            "not found", "could not find", "404",
+            "kullanıcı bulunamadı", "sayfa bulunamadı",
+        ],
+        "ok_signals": ["trophies", "level", "games", "friends", "arkadaş"],
+        "og_type": None,
     },
-    "quora.com": {
+    "nintendo-master.com": {
         "login_urls": ["/login"],
-        "not_found": ["page not found", "we couldn't find"],
-        "ok_signals": ["followers", "answers", "questions", "yanıt"],
+        "not_found": ["not found", "no profile", "404", "kullanıcı bulunamadı"],
+        "ok_signals": ["games", "friends", "arkadaş", "oyun"],
+        "og_type": None,
+    },
+    "epicgames.com": {
+        "login_urls": ["/id/login", "/login"],
+        "not_found": [
+            "page not found", "user not found", "404",
+            "kullanıcı bulunamadı", "sayfa bulunamadı",
+        ],
+        "ok_signals": ["friends", "arkadaş", "games"],
+        "og_type": None,
+    },
+    "roblox.com": {
+        "login_urls": ["/login"],
+        "not_found": [
+            "not found", "user not found", "404",
+            "kullanıcı bulunamadı", "sayfa bulunamadı",
+        ],
+        "ok_signals": ["friends", "arkadaş", "followers", "takipçi"],
+        "og_type": None,
+    },
+    "namemc.com": {
+        "login_urls": ["/login"],
+        "not_found": [
+            "not found", "no player", "404",
+            "kullanıcı bulunamadı", "oyuncu bulunamadı",
+        ],
+        "ok_signals": ["profile", "history", "geçmiş"],
+        "og_type": None,
+    },
+
+    # ═══════════════════════════════════════════════════════
+    # MÜZİK / PODCAST
+    # ═══════════════════════════════════════════════════════
+    "spotify.com": {
+        "login_urls": ["/login"],
+        "not_found": ["page not found", "sayfa bulunamadı", "couldn't find"],
+        "ok_signals": ["followers", "takipçi", "playlists", "public playlists"],
         "og_type": "profile",
     },
     "soundcloud.com": {
         "login_urls": ["/signin", "/login"],
-        "not_found": ["we can't find that user", "kullanıcı bulunamadı", "404"],
-        "ok_signals": ["followers", "takipçi", "tracks", "parça"],
+        "not_found": [
+            "we can't find that user", "kullanıcı bulunamadı",
+            "404", "page not found",
+        ],
+        "ok_signals": ["followers", "takipçi", "tracks", "parça", "following"],
         "og_type": "profile",
     },
-    "snapchat.com": {
-        "login_urls": ["/login", "/accounts/login"],
-        "not_found": [
-            # Türkçe (eklendi)
-            "üzgünüz, bu içerik bulunamadı",
-            "üzgünüz, bu içerik bulunamadı",  # noktalı/noktasız varyasyon
-            "bu içerik bulunamadı",
-            "üzgünüz",
-            "kullanıcı bulunamadı",
-            # İngilizce
-            "this username does not exist",
-            "sorry, we couldn't find that user",
-            "user not found",
-            "content not found",
-            "sorry, this content couldn't be found",
-        ],
-        # Sinyalleri sıkılaştır — sadece Snapchat'e özgü olanlar
-        "ok_signals": ["bitmoji", "snapcode", "hikaye", "story", "arkadaş ekle"],
-        "og_type": None,
+    "mixcloud.com": {
+        "login_urls": ["/login", "/signup"],
+        "not_found": ["not found", "404", "page not found", "sayfa bulunamadı"],
+        "ok_signals": ["followers", "takipçi", "mixes", "following"],
+        "og_type": "profile",
     },
-    "t.me": {
+    "bandcamp.com": {
+        "login_urls": ["/login", "/signup"],
+        "not_found": [
+            "not found", "404", "page not found",
+            "sayfa bulunamadı", "bu sayfa bulunamadı",
+        ],
+        "ok_signals": ["followers", "takipçi", "tracks", "following", "collection"],
+        "og_type": "profile",
+    },
+    "shazam.com": {
+        "login_urls": ["/login", "/signin"],
+        "not_found": ["not found", "404", "page not found", "sayfa bulunamadı"],
+        "ok_signals": ["followers", "takipçi", "songs", "shazams"],
+        "og_type": "profile",
+    },
+    "last.fm": {
+        "login_urls": ["/login", "/join"],
+        "not_found": [
+            "not found", "404", "user not found",
+            "kullanıcı bulunamadı", "page not found",
+        ],
+        "ok_signals": ["scrobbles", "followers", "takipçi", "following", "artists"],
+        "og_type": "profile",
+    },
+
+    # ═══════════════════════════════════════════════════════
+    # BLOG / YAYINCILIK
+    # ═══════════════════════════════════════════════════════
+    "medium.com": {
         "login_urls": [],
         "not_found": [
-            # Telegram var olmayan kanal/kullanıcı için "Preview channel" veya
-            # "If you have Telegram, you can contact" yerine boş sayfa basar.
-            # Aslında Telegram "username not found" gibi bir metin göstermiyor,
-            # ama boş sayfada og:title "Telegram" olur.
-            "sorry, this username is invalid",
-            "kullanıcı adı geçersiz",
+            "404", "out of nothing, something",
+            "page not found", "sayfa bulunamadı",
         ],
-        "ok_signals": ["telegram", "members", "üye", "subscribers", "abone", "preview"],
-        "og_type": None,
-        # t.me'de og:title boşsa veya "Telegram" ise kullanıcı yok
-        "require_og_title_not": ["telegram", "telegram messenger"],
+        "ok_signals": ["followers", "takipçi", "following", "stories"],
+        "og_type": "profile",
     },
-    "discord.com": {
-        "login_urls": ["/login", "/register"],
+    "wordpress.com": {
+        "login_urls": [],
         "not_found": [
-            "user not found", "kullanıcı bulunamadı",
-            "hmm, didn't work", "bir şeyler ters gitti",
-            "this user does not exist",
+            "doesn't exist", "not found", "404",
+            "bu site mevcut değil", "sayfa bulunamadı",
         ],
-        "ok_signals": ["discord", "user", "kullanıcı"],
+        "ok_signals": ["followers", "posts", "takipçi", "gönderi", "following"],
+        "og_type": None,
+    },
+    "blogspot.com": {
+        "login_urls": [],
+        "not_found": [
+            "not found", "404", "blog not found",
+            "bu blog bulunamadı", "sayfa bulunamadı",
+        ],
+        "ok_signals": ["posts", "followers", "gönderi", "takipçi"],
+        "og_type": None,
+    },
+    "ghost.io": {
+        "login_urls": ["/login", "/signin"],
+        "not_found": ["not found", "404", "page not found", "sayfa bulunamadı"],
+        "ok_signals": ["posts", "followers", "gönderi", "takipçi"],
+        "og_type": None,
+    },
+    "write.as": {
+        "login_urls": ["/login", "/signin"],
+        "not_found": ["not found", "404", "page not found", "sayfa bulunamadı"],
+        "ok_signals": ["posts", "followers", "gönderi", "takipçi"],
+        "og_type": None,
+    },
+    "substack.com": {
+        "login_urls": ["/signin", "/login"],
+        "not_found": [
+            "not found", "404", "page not found",
+            "sayfa bulunamadı", "publication not found",
+        ],
+        "ok_signals": ["subscribers", "posts", "abone", "gönderi", "following"],
+        "og_type": None,
+    },
+    "about.me": {
+        "login_urls": ["/login", "/signup"],
+        "not_found": [
+            "not found", "404", "page not found",
+            "sayfa bulunamadı", "this page doesn't exist",
+        ],
+        "ok_signals": ["followers", "takipçi", "bio", "hakkında"],
+        "og_type": "profile",
+    },
+    "rebelmouse.com": {
+        "login_urls": ["/login"],
+        "not_found": ["not found", "404", "page not found", "sayfa bulunamadı"],
+        "ok_signals": ["posts", "followers", "gönderi", "takipçi"],
+        "og_type": None,
+    },
+    "scribd.com": {
+        "login_urls": ["/login"],
+        "not_found": [
+            "not found", "404", "page not found",
+            "sayfa bulunamadı", "kullanıcı bulunamadı",
+        ],
+        "ok_signals": ["followers", "documents", "takipçi", "belge"],
+        "og_type": "profile",
+    },
+    "slideshare.net": {
+        "login_urls": ["/login", "/signup"],
+        "not_found": ["not found", "404", "page not found", "sayfa bulunamadı"],
+        "ok_signals": ["followers", "presentations", "takipçi", "sunum"],
+        "og_type": "profile",
+    },
+    "hubpages.com": {
+        "login_urls": ["/login"],
+        "not_found": ["not found", "404", "page not found", "sayfa bulunamadı"],
+        "ok_signals": ["followers", "hubs", "takipçi", "articles"],
+        "og_type": "profile",
+    },
+    "quora.com": {
+        "login_urls": ["/login"],
+        "not_found": ["page not found", "we couldn't find", "sayfa bulunamadı"],
+        "ok_signals": ["followers", "answers", "questions", "yanıt", "takipçi"],
+        "og_type": "profile",
+    },
+    "couchsurfing.com": {
+        "login_urls": ["/login", "/signup"],
+        "not_found": [
+            "not found", "404", "profile not found",
+            "sayfa bulunamadı", "kullanıcı bulunamadı",
+        ],
+        "ok_signals": ["friends", "references", "arkadaş", "takipçi"],
+        "og_type": None,
+    },
+
+    # ═══════════════════════════════════════════════════════
+    # NFT / BLOKZİNCİR
+    # ═══════════════════════════════════════════════════════
+    "opensea.io": {
+        "login_urls": ["/login"],
+        "not_found": ["not found", "404", "page not found", "sayfa bulunamadı"],
+        "ok_signals": ["collections", "followers", "items", "takipçi"],
+        "og_type": "profile",
+    },
+    "rarible.com": {
+        "login_urls": ["/login"],
+        "not_found": ["not found", "404", "page not found", "sayfa bulunamadı"],
+        "ok_signals": ["items", "followers", "takipçi", "collections"],
+        "og_type": "profile",
+    },
+
+    # ═══════════════════════════════════════════════════════
+    # AKADEMİK
+    # ═══════════════════════════════════════════════════════
+    "researchgate.net": {
+        "login_urls": ["/login", "/signup"],
+        "not_found": [
+            "not found", "404", "page not found",
+            "sayfa bulunamadı", "profile not found",
+        ],
+        "ok_signals": ["publications", "followers", "takipçi", "citations", "following"],
+        "og_type": "profile",
+    },
+    "academia.edu": {
+        "login_urls": ["/login", "/signup"],
+        "not_found": ["not found", "404", "page not found", "sayfa bulunamadı"],
+        "ok_signals": ["papers", "followers", "takipçi", "following"],
+        "og_type": "profile",
+    },
+    "orcid.org": {
+        "login_urls": ["/signin", "/signin"],
+        "not_found": [
+            "not found", "404", "page not found",
+            "sayfa bulunamadı", "record not found",
+        ],
+        "ok_signals": ["works", "employment", "education", "yayın", "eğitim"],
+        "og_type": "profile",
+    },
+
+    # ═══════════════════════════════════════════════════════
+    # TÜRKİYE'YE ÖZEL
+    # ═══════════════════════════════════════════════════════
+    "eksisozluk.com": {
+        "login_urls": ["/giris"],
+        "not_found": [
+            "böyle bir yazar bulunamadı",
+            "sayfa bulunamadı", "404",
+            "kullanıcı bulunamadı",
+        ],
+        "ok_signals": ["entry", "takipçi", "yazar", "favori"],
+        "og_type": None,
+    },
+    "forum.donanimhaber.com": {
+        "login_urls": ["/login"],
+        "not_found": [
+            "kullanıcı bulunamadı", "sayfa bulunamadı",
+            "hata", "404", "böyle bir kullanıcı yok",
+        ],
+        "ok_signals": ["mesaj", "konu", "takipçi", "profil"],
+        "og_type": None,
+    },
+    "kizlarsoruyor.com": {
+        "login_urls": ["/giris", "/login"],
+        "not_found": [
+            "kullanıcı bulunamadı", "sayfa bulunamadı",
+            "404", "profil bulunamadı",
+        ],
+        "ok_signals": ["soru", "cevap", "takipçi", "profil"],
+        "og_type": None,
+    },
+
+    # ═══════════════════════════════════════════════════════
+    # KENAR / ESKİ
+    # ═══════════════════════════════════════════════════════
+    "voat.co": {
+        "login_urls": ["/login"],
+        "not_found": ["not found", "404", "page not found", "sayfa bulunamadı"],
+        "ok_signals": ["submissions", "comments", "karma"],
+        "og_type": None,
+    },
+    "8kun.top": {
+        "login_urls": [],
+        "not_found": ["not found", "404", "page not found"],
+        "ok_signals": ["posts", "threads", "replies"],
         "og_type": None,
     },
 }
@@ -578,7 +1035,7 @@ urls = [
     { "name": "Tumblr", "url": "https://{user}.tumblr.com", "engine": "selenium" },
     { "name": "Snapchat", "url": "https://www.snapchat.com/add/{user}", "engine": "selenium" },
     { "name": "Telegram", "url": "https://t.me/{user}", "engine": "selenium" },
-    { "name": "Discord", "url": "https://discord.com/users/{user}", "engine": "selenium" },
+    #{ "name": "Discord", "url": "https://discord.com/users/{user}", "engine": "selenium" },
     { "name": "Reddit", "url": "https://www.reddit.com/user/{user}", "engine": "selenium" },
     { "name": "Twitch", "url": "https://www.twitch.tv/{user}", "engine": "selenium" },
     { "name": "YouTube", "url": "https://www.youtube.com/@{user}", "engine": "selenium" },
