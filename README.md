@@ -31,5 +31,5 @@ git clone https://github.com/AlperenBuba/tepegoz.git
 cd tepegoz
 
 # Install the required packages and the command
-pip install .
+python3 TepeGozCli.py
 ```
