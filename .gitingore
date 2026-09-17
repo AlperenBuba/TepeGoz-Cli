@@ -4,3 +4,5 @@
 *.txt
 /drivers
 /drivers/geckodriver
+/.vscode
+.DS_Store
