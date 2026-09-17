@@ -2,6 +2,12 @@ import subprocess
 import platform
 import sys
 import importlib.util
+import os
+import zipfile
+import urllib.request
+import json
+
+ACTIVE_BROWSER = None
 
 if platform.system() == "Windows":
     try:
@@ -102,79 +108,321 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 
-def get_smart_driver():
-    sys_platform = platform.system()
+def get_platform_arch():
+    """Sistem mimarisini belirler (Windows/Mac/Linux + ARM/x64)."""
+    system = platform.system()
+    machine = platform.machine().lower()
     
-    # 1. Önce Chrome'u denetle (Gelişmiş Bot Gizleme Parametreleriyle)
+    if system == "Windows":
+        return "win-aarch64" if ("arm" in machine or "aarch" in machine) else "win64"
+    elif system == "Darwin":
+        return "macos-aarch64" if "arm" in machine else "macos"
+    else:  # Linux
+        return "linux-aarch64" if ("arm" in machine or "aarch" in machine) else "linux64"
+
+
+def download_geckodriver(drivers_dir):
+    """Geckodriver'ı (Firefox) GitHub'dan indirir."""
+    ext = ".exe" if platform.system() == "Windows" else ""
+    gecko_path = os.path.join(drivers_dir, f"geckodriver{ext}")
+    
+    if os.path.exists(gecko_path):
+        return gecko_path
+    
+    os.makedirs(drivers_dir, exist_ok=True)
+    print(f"{YELLOW}[!] Geckodriver indiriliyor...{RESET}")
+    
     try:
-        from selenium.webdriver.chrome.options import Options as ChromeOptions
-        options = ChromeOptions()
-        options.page_load_strategy = "eager"
-        options.add_argument("--headless=new") # Modern ve daha az yakalanan headless modu
-        options.add_argument("--disable-gpu")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
-        options.add_argument("--disable-extensions")
-        options.add_argument("--disable-plugins")
-        options.add_argument("--disable-images")           # Resim yükleme (OSINT için gereksiz)
-        options.add_argument("--blink-settings=imagesEnabled=false")
-        options.add_argument("--disable-software-rasterizer")
-        options.add_argument("--disable-background-networking")
-        options.add_argument("--disable-sync")
-        options.add_argument("--metrics-recording-only")
-        options.add_argument("--mute-audio")
-        options.add_argument("--no-first-run")
-        options.add_argument("--disable-default-apps")
-        # Otomasyon izlerini gizleyen kritik bayraklar
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option('useAutomationExtension', False)
+        req = urllib.request.Request(
+            "https://api.github.com/repos/mozilla/geckodriver/releases/latest",
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
+        with urllib.request.urlopen(req, timeout=15) as response:
+            data = json.loads(response.read().decode())
         
-        driver = webdriver.Chrome(options=options)
-        # Ekstra JavaScript koruma gizlemesi
-        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-        return driver
-    except Exception:
-        pass 
-
-    # 2. Microsoft Edge'i denetle
-    try:
-        from selenium.webdriver.edge.options import Options as EdgeOptions
-        options = EdgeOptions()
-        options.page_load_strategy = "eager"
-        options.add_argument("--headless=new")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option('useAutomationExtension', False)
+        arch = get_platform_arch()
+        download_url = None
         
-        driver = webdriver.Edge(options=options)
-        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-        return driver
-    except Exception:
-        pass
+        # Uygun asset'i bul (öncelik: kesin mimari → genel)
+        priority = {
+            "win-aarch64": ["win-aarch64"],
+            "win64": ["win64"],
+            "macos-aarch64": ["macos-aarch64"],
+            "macos": ["macos"],
+            "linux-aarch64": ["linux-aarch64"],
+            "linux64": ["linux64"],
+        }
+        
+        for asset in data["assets"]:
+            name = asset["name"].lower()
+            for key in priority.get(arch, []):
+                if key in name and (name.endswith(".zip") or name.endswith(".tar.gz")):
+                    download_url = asset["browser_download_url"]
+                    break
+            if download_url:
+                break
+        
+        if not download_url:
+            print(f"{RED}[!] {arch} için geckodriver bulunamadı{RESET}")
+            return None
+        
+        archive = os.path.join(drivers_dir, "gecko_archive.tmp")
+        urllib.request.urlretrieve(download_url, archive)
+        
+        if archive.endswith(".zip") or download_url.endswith(".zip"):
+            with zipfile.ZipFile(archive, "r") as z:
+                z.extractall(drivers_dir)
+        else:
+            import tarfile
+            with tarfile.open(archive, "r:gz") as t:
+                t.extractall(drivers_dir)
+        
+        os.remove(archive)
+        
+        if platform.system() != "Windows":
+            os.chmod(gecko_path, 0o755)
+        
+        print(f"{GREEN}[+] Geckodriver hazır: {gecko_path}{RESET}")
+        return gecko_path
+    except Exception as e:
+        print(f"{RED}[!] Geckodriver indirme hatası: {e}{RESET}")
+        return None
 
-    # 3. Firefox'u denetle
+
+def download_msedgedriver(drivers_dir):
+    """Msedgedriver'ı (Edge) Microsoft'tan indirir."""
+    ext = ".exe" if platform.system() == "Windows" else ""
+    edge_path = os.path.join(drivers_dir, f"msedgedriver{ext}")
+    
+    if os.path.exists(edge_path):
+        return edge_path
+    
+    os.makedirs(drivers_dir, exist_ok=True)
+    print(f"{YELLOW}[!] Msedgedriver indiriliyor...{RESET}")
+    
     try:
-        from selenium.webdriver.firefox.options import Options as FirefoxOptions
-        options = FirefoxOptions()
-        options.add_argument("-headless")
-        options.set_preference("general.useragent.override", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0")
-        return webdriver.Firefox(options=options)
-    except Exception:
-        pass 
+        # Edge sürümünü bul
+        import subprocess as sp
+        edge_exe = None
+        candidates = [
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+        ]
+        for c in candidates:
+            if os.path.exists(c):
+                edge_exe = c
+                break
+        
+        if not edge_exe:
+            print(f"{RED}[!] Edge kurulu değil{RESET}")
+            return None
+        
+        result = sp.run([edge_exe, "--version"], capture_output=True, text=True)
+        version = result.stdout.strip().split()[-1]  # "122.0.2365.92"
+        
+        arch = "arm64" if get_platform_arch() == "win-aarch64" else "win64"
+        url = f"https://msedgedriver.microsoft.com/{version}/edgedriver_{arch}.zip"
+        
+        archive = os.path.join(drivers_dir, "edge_archive.tmp")
+        urllib.request.urlretrieve(url, archive)
+        
+        with zipfile.ZipFile(archive, "r") as z:
+            z.extractall(drivers_dir)
+        
+        # Bazen alt klasöre çıkarır
+        for root, dirs, files in os.walk(drivers_dir):
+            if "msedgedriver.exe" in files:
+                src = os.path.join(root, "msedgedriver.exe")
+                if src != edge_path:
+                    import shutil
+                    shutil.move(src, edge_path)
+                break
+        
+        os.remove(archive)
+        print(f"{GREEN}[+] Msedgedriver hazır: {edge_path}{RESET}")
+        return edge_path
+    except Exception as e:
+        print(f"{RED}[!] Msedgedriver indirme hatası: {e}{RESET}")
+        return None
 
-    # 4. Mac için Safari'yi denetle
-    if sys_platform == "Darwin":
+import os
+import zipfile
+import urllib.request
+import json
+import platform
+
+def get_arch():
+    system = platform.system()
+    machine = platform.machine().lower()
+    if system == "Windows":
+        return "win-aarch64" if "arm" in machine or "aarch" in machine else "win64"
+    elif system == "Darwin":
+        return "macos-aarch64" if "arm" in machine else "macos"
+    else:
+        return "linux-aarch64" if "arm" in machine or "aarch" in machine else "linux64"
+
+
+def ensure_geckodriver():
+    base = os.path.dirname(os.path.abspath(__file__))
+    drivers_dir = os.path.join(base, "drivers")
+    os.makedirs(drivers_dir, exist_ok=True)
+    ext = ".exe" if platform.system() == "Windows" else ""
+    path = os.path.join(drivers_dir, f"geckodriver{ext}")
+    
+    if os.path.exists(path):
+        return path
+    
+    print(f"{YELLOW}[!] Geckodriver indiriliyor...{RESET}")
+    try:
+        req = urllib.request.Request(
+            "https://api.github.com/repos/mozilla/geckodriver/releases/latest",
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
+        with urllib.request.urlopen(req, timeout=15) as r:
+            data = json.loads(r.read().decode())
+        
+        arch = get_arch()
+        url = None
+        for asset in data["assets"]:
+            name = asset["name"].lower()
+            if arch in name and name.endswith((".zip", ".tar.gz")):
+                url = asset["browser_download_url"]
+                break
+        
+        if not url:
+            return None
+        
+        archive = os.path.join(drivers_dir, "gecko.tmp")
+        with urllib.request.urlopen(url, timeout=60) as r:
+            with open(archive, "wb") as f:
+                f.write(r.read())
+        
+        if url.endswith(".zip"):
+            with zipfile.ZipFile(archive, "r") as z:
+                z.extractall(drivers_dir)
+        else:
+            import tarfile
+            with tarfile.open(archive, "r:gz") as t:
+                t.extractall(drivers_dir)
+        
+        os.remove(archive)
+        if platform.system() != "Windows":
+            os.chmod(path, 0o755)
+        
+        print(f"{GREEN}[+] Geckodriver hazır{RESET}")
+        return path
+    except Exception as e:
+        print(f"{RED}[!] Geckodriver indirilemedi: {e}{RESET}")
+        return None
+
+def ensure_all_drivers():
+    print(f"{BLUE}[i] Driver kontrol ediliyor...{RESET}")
+    ensure_geckodriver()
+
+def detect_browser():
+    global ACTIVE_BROWSER
+    if ACTIVE_BROWSER:
+        return ACTIVE_BROWSER
+    
+    base = os.path.dirname(os.path.abspath(__file__))
+    drivers_dir = os.path.join(base, "drivers")
+    ext = ".exe" if platform.system() == "Windows" else ""
+    
+    # ─── 1. Chrome kurulu mu? ───
+    chrome_ok = False
+    if platform.system() == "Windows":
+        chrome_ok = any(os.path.exists(p) for p in [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        ])
+    elif platform.system() == "Darwin":
+        chrome_ok = os.path.exists("/Applications/Google Chrome.app")
+    else:
+        chrome_ok = any(os.path.exists(p) for p in 
+            ["/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"])
+    
+    if chrome_ok:
         try:
-            return webdriver.Safari()
+            test_driver = _make_chrome_driver()
+            test_driver.quit()
+            ACTIVE_BROWSER = "chrome"
+            print(f"{GREEN}[+] Aktif tarayıcı: Chrome{RESET}")
+            return "chrome"
         except Exception:
             pass
+    
+    # ─── 2. Firefox kurulu mu? ───
+    gecko_path = os.path.join(drivers_dir, f"geckodriver{ext}")
+    if os.path.exists(gecko_path):
+        try:
+            test_driver = _make_firefox_driver(gecko_path)
+            test_driver.quit()
+            ACTIVE_BROWSER = "firefox"
+            print(f"{GREEN}[+] Aktif tarayıcı: Firefox{RESET}")
+            return "firefox"
+        except Exception:
+            pass
+    
+    print(f"{RED}[!] Hiçbir tarayıcı başlatılamadı{RESET}")
+    return None
 
+def _make_chrome_driver():
+    from selenium.webdriver.chrome.options import Options as ChromeOptions
+    options = ChromeOptions()
+    options.page_load_strategy = "eager"
+    options.add_argument("--headless=new")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_argument("--disable-extensions")
+    options.add_argument("--disable-plugins")
+    options.add_argument("--disable-images")
+    options.add_argument("--blink-settings=imagesEnabled=false")
+    options.add_argument("--mute-audio")
+    options.add_argument("--no-first-run")
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36")
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option('useAutomationExtension', False)
+    driver = webdriver.Chrome(options=options)
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    return driver
+
+
+def _make_firefox_driver(gecko_path):
+    from selenium.webdriver.firefox.options import Options as FirefoxOptions
+    from selenium.webdriver.firefox.service import Service as FirefoxService
+    options = FirefoxOptions()
+    options.page_load_strategy = "eager"
+    options.add_argument("-headless")
+    options.set_preference("general.useragent.override",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0")
+    options.set_preference("permissions.default.image", 2)   # Resimleri yükleme
+    options.set_preference("media.volume_scale", "0.0")
+    service = FirefoxService(executable_path=gecko_path)
+    return webdriver.Firefox(service=service, options=options)
+
+def get_smart_driver():
+    global ACTIVE_BROWSER
+    
+    base = os.path.dirname(os.path.abspath(__file__))
+    drivers_dir = os.path.join(base, "drivers")
+    ext = ".exe" if platform.system() == "Windows" else ""
+    
+    if ACTIVE_BROWSER == "chrome":
+        try:
+            return _make_chrome_driver()
+        except Exception:
+            pass
+    elif ACTIVE_BROWSER == "firefox":
+        gecko_path = os.path.join(drivers_dir, f"geckodriver{ext}")
+        if os.path.exists(gecko_path):
+            try:
+                return _make_firefox_driver(gecko_path)
+            except Exception:
+                pass
+    
+    # Hiçbiri yoksa fallback (nadir durum)
     return None
 
 from selenium.webdriver.support.ui import WebDriverWait
@@ -184,7 +432,6 @@ import time
 from multiprocessing import Pool
 
 def get_worker_count():
-    """Sistem RAM'ine göre güvenli worker sayısını döner."""
     total_gb = None
 
     # 1) psutil varsa en doğru bilgi
@@ -227,6 +474,8 @@ def check_one_mp(args):
     name, variant, url = args
     driver = None
     try:
+        if not ACTIVE_BROWSER:
+            detect_browser()
         driver = get_smart_driver()
         if not driver:
             return None
@@ -241,10 +490,12 @@ def check_one_mp(args):
             except Exception:
                 pass
 
+def _init_worker():
+    detect_browser()
 
 def parallel_scan(tasks, workers=3):
     results = []
-    with Pool(processes=workers) as pool:
+    with Pool(processes=workers, initializer=_init_worker) as pool:
         for r in tqdm(pool.imap_unordered(check_one_mp, tasks),
                       total=len(tasks), desc="[+] Tarıyor", colour="green"):
             if r:
@@ -1242,6 +1493,81 @@ menu_header = f"""{GREEN}
  My Website --> https://alperenbuba.github.io/TurkByteSoftware/{YELLOW}
 """
 
+def offer_auto_install():
+    system = platform.system()
+    
+    print(f"\n{BLUE}[?] Firefox otomatik kurulsun mu? (E/H): {RESET}", end="")
+    choice = input().strip().lower()
+    
+    if choice not in ['e', 'evet', 'y', 'yes']:
+        return False
+    
+    try:
+        if system == "Windows":
+            print(f"{YELLOW}[!] Firefox kuruluyor (winget)...{RESET}")
+            result = subprocess.run(
+                ["winget", "install", "-e", "--id", "Mozilla.Firefox"],
+                capture_output=True, text=True, timeout=300
+            )
+            if result.returncode == 0:
+                print(f"{GREEN}[+] Firefox kuruldu! Programı yeniden başlat.{RESET}")
+                return True
+            else:
+                print(f"{RED}[!] Kurulum başarısız. Manuel kur: winget install Mozilla.Firefox{RESET}")
+        elif system == "Darwin":
+            print(f"{YELLOW}[!] Firefox kuruluyor (brew)...{RESET}")
+            result = subprocess.run(
+                ["brew", "install", "--cask", "firefox"],
+                capture_output=True, text=True, timeout=600
+            )
+            if result.returncode == 0:
+                print(f"{GREEN}[+] Firefox kuruldu!{RESET}")
+                return True
+    except FileNotFoundError:
+        print(f"{RED}[!] Paket yöneticisi bulunamadı (winget/brew){RESET}")
+    except Exception as e:
+        print(f"{RED}[!] Kurulum hatası: {e}{RESET}")
+    
+    return False
+
+def print_browser_help():
+    system = platform.system()
+    
+    print(f"\n{RED}╔══════════════════════════════════════════════════════╗{RESET}")
+    print(f"{RED}║  TARAYICI BULUNAMADI                                 ║{RESET}")
+    print(f"{RED}╚══════════════════════════════════════════════════════╝{RESET}")
+    print(f"\n{YELLOW}Bu program Chrome veya Firefox tarayıcılarından{RESET}")
+    print(f"{YELLOW}en az birine ihtiyaç duyar. Sisteminizde hiçbiri kurulu değil.{RESET}")
+    
+    print(f"\n{BLUE}━━━ Nasıl kurulur? ━━━{RESET}\n")
+    
+    if system == "Windows":
+        print(f"{GREEN}Windows'ta (PowerShell):{RESET}")
+        print(f"  {BLUE}winget install Google.Chrome{RESET}       (Önerilen - hızlı)")
+        print(f"  {BLUE}winget install Mozilla.Firefox{RESET}     (ARM uyumlu)")
+        print(f"  {BLUE}winget install Microsoft.Edge{RESET}      (Windows'ta genelde hazır)")
+    elif system == "Darwin":
+        print(f"{GREEN}macOS'ta (Terminal):{RESET}")
+        print(f"  {BLUE}brew install --cask firefox{RESET}       (Önerilen - hızlı, hafif)")
+        print(f"  {BLUE}brew install --cask google-chrome{RESET}")
+    elif system == "Linux":
+        print(f"{GREEN}Linux'ta:{RESET}")
+        print(f"  {BLUE}sudo apt install chromium-browser{RESET}   (Debian/Ubuntu)")
+        print(f"  {BLUE}sudo dnf install chromium{RESET}          (Fedora)")
+        print(f"  {BLUE}sudo pacman -S chromium{RESET}            (Arch)")
+    else:
+        print(f"{GREEN}Tarayıcı kur:{RESET}")
+        print(f"  Chrome, Edge veya Firefox'tan birini kur")
+    
+    print(f"\n{BLUE}━━━ Kurulum sonrası ━━━{RESET}")
+    print(f"  Programı yeniden başlat — driver otomatik inecek.\n")
+    
+    print(f"{YELLOW}[i] Not: Windows ARM için Mozilla Firefox önerilir.{RESET}")
+    print(f"{YELLOW}    Edge ARM'da headless mod bazen sorun çıkarır.{RESET}\n")
+
+    if offer_auto_install():
+        sys.exit(0)
+
 def Start():
     clear()
     print(menu_header)
@@ -1252,7 +1578,7 @@ def Start():
             return 0
     except ValueError:
         return 0
-        
+    
     clear()
     print(menu_header)
     username = input(f" Enter the person's username:{GREEN} ")
@@ -1263,10 +1589,8 @@ def Start():
     try:
         if secim == 1:
             target_urls = popular_urls
-            desc_text = "[+] Sosyal Medya Taranıyor"
         elif secim == 2:
             target_urls = urls
-            desc_text = "[+] Tüm Siteler Taranıyor"
         else:
             pass
     except NameError:
@@ -1282,10 +1606,18 @@ def Start():
                     variant,
                     url_item["url"].format(user=variant)
                 ))
-
-    # ─── 2) Paralel tarama ───
-    results = parallel_scan(tasks, workers=3)
-
+                
+    # ─── Tarayıcı kontrolü ───
+    ensure_all_drivers()
+    
+    browser = detect_browser()
+    if not browser:
+        print_browser_help()
+        input(f"\n{BLUE}Ana menüye dönmek için ENTER'a bas...{RESET}")
+        return
+    
+    # ─── Paralel tarama ───
+    results = parallel_scan(tasks, workers=get_worker_count())
     # ─── 3) Bulunanları kaydet ───
     for name, variant, url in results:
         found_links.append((f"{name} ({variant})", url))
@@ -1330,27 +1662,6 @@ def versionCreator(name):
         ciktilar.add(f"_{with_dot}_")
 
     return list(ciktilar)
-
-
-def finder(user):
-    for url in tqdm(urls, desc=f"{RESET}[+] TepeGoz Tarıyor: ", colour="green"):
-        name = url["name"]
-        adress = url["url"].format(user=user)
-        engine = url.get("engine", "requests")
-        if engine == "selenium":
-            if check_selenium_profile(adress):
-                tqdm.write(f"{BLUE}[+] {GREEN}{name}: Link Found! --> {adress}")
-                found_links.append((name, adress))
-
-def easyFinder(user):
-    for url in tqdm(popular_urls, desc=f"{RESET}[+] TepeGoz Tarıyor: ", colour="green"):
-        name = url["name"]
-        adress = url["url"].format(user=user)
-        engine = url.get("engine", "requests")
-        if engine == "selenium":
-            if check_selenium_profile(adress):
-                tqdm.write(f"{BLUE}[+] {GREEN}{name}: Link Found! --> {adress}")
-                found_links.append((name, adress))
 
 def fileCreator(user):
     if found_links:
