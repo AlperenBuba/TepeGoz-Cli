@@ -9,7 +9,7 @@ YELLOW = "\033[33m"
 BLUE = "\033[94m"
 RESET = "\033[0m"
 
-gecikme = 3
+gecikme = 2.5
 
 def check_requirements():
     if getattr(sys, 'frozen', False):
@@ -46,6 +46,7 @@ def get_smart_driver():
     try:
         from selenium.webdriver.chrome.options import Options as ChromeOptions
         options = ChromeOptions()
+        options.page_load_strategy = "eager"
         options.add_argument("--headless=new") # Modern ve daha az yakalanan headless modu
         options.add_argument("--disable-gpu")
         options.add_argument("--no-sandbox")
@@ -68,6 +69,7 @@ def get_smart_driver():
     try:
         from selenium.webdriver.edge.options import Options as EdgeOptions
         options = EdgeOptions()
+        options.page_load_strategy = "eager"
         options.add_argument("--headless=new")
         options.add_argument("--disable-gpu")
         options.add_argument("--no-sandbox")
@@ -85,6 +87,7 @@ def get_smart_driver():
 
     # 3. Firefox'u denetle
     try:
+        options.page_load_strategy = "eager"
         from selenium.webdriver.firefox.options import Options as FirefoxOptions
         options = FirefoxOptions()
         options.add_argument("-headless")
@@ -104,93 +107,392 @@ def get_smart_driver():
 
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, WebDriverException
+import time
 
-def check_selenium_profile(url):
-    driver = None
+def check_selenium_profile(driver, url):
     try:
-        driver = get_smart_driver()
-        if not driver:
-            return False
-
-        driver.get(url)
-        
-        # Sayfanın yüklenmesini bekle
+        driver.set_page_load_timeout(20)
         try:
-            WebDriverWait(driver, gecikme).until(
+            driver.get(url)
+            try:
+                # DOM hazır olana kadar bekle (resim, CSS, iframe bekleme)
+                WebDriverWait(driver, 10).until(
+                    lambda d: d.execute_script("return document.readyState") == "complete"
+                )
+            except Exception:
+                pass # Zaman aşımı olursa devam et
+        except Exception:
+            pass
+
+        try:
+            WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
         except Exception:
-            pass 
-
-        title = driver.title.lower()
-        current_url = driver.current_url.lower()
-        page_text = driver.page_source.lower()
-
-        # 1. Eğer URL 404 sayfasına yönlendirildiyse veya ana sayfaya fırlattıysa kesinlikle yoktur
-        if "404" in title or "not found" in title or "bulunamadı" in title:
-            driver.quit()
-            return False
-
-        # 2. Bazı siteler (Instagram, Twitter vb.) olmayan kullanıcıyı login sayfasına veya ana sayfaya atar
-        if "instagram.com" in url.lower() and ("accounts/login" in current_url or "giriş yap" in title):
-            driver.quit()
-            return False
-
-        if "instagram.com" in url.lower():
-            if "üzgünüz, bu sayfaya ulaşılamıyor" in page_text or "tıklandığın bağlantı bozuk olabilir" in page_text or "page not found" in page_text:
-                driver.quit()
-                return False
-
-        if "instagram.com" in url.lower():
-            try:
-                # Hata mesajının DOM'a düşmesi için kısa bir süre (örn: 2 saniye) max bekle
-                WebDriverWait(driver, 2).until(
-                    EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'ulaşılamıyor') or contains(text(), 'bozuk olabilir')]"))
-                )
-                # Eğer bu hata elementi bulunursa, hesap kesinlikle yoktur!
-                driver.quit()
-                return False
-            except Exception:
-                pass
-
-        if "linkedin.com" in url.lower():
-            if "linkedin.com/login" in current_url or "sign in" in title or "giriş yap" in title or "join linkedin" in page_text:
-                driver.quit()
-                return False
-
-        if "reddit.com" in url.lower():
-            if "kimse bu adı kullanmıyor" in page_text or "bu hesap yasaklanmış" in page_text or "not found" in page_text:
-                driver.quit()
-                return False
-
-        if "github.com" in url.lower() and "sign in" in title:
-            # GitHub profil varsa sign in olsa bile başlıkta kullanıcı adı görünür
             pass
 
-        # Genel hata başlığı kontrolü
-        error_titles = ["bulunamadı", "not found", "sayfa bulunamadı", "page not found", "error", "404"]
-        for err in error_titles:
-            if err in title and len(title) < 50: # Sadece başlık hata mesajından ibaretse
-                driver.quit()
+        time.sleep(2.5)
+
+        title = (driver.title or "").lower().strip()
+        current_url = (driver.current_url or "").lower()
+
+        try:
+            page_text = driver.page_source.lower()
+        except Exception:
+            page_text = ""
+
+        # Hangi site kuralı eşleşiyor?
+        matched_rule = None
+        matched_domain = None
+        for domain, rule in SITE_RULES.items():
+            if domain in url.lower():
+                matched_rule = rule
+                matched_domain = domain
+                break
+
+        # ─── KURAL YOKSA: genel sezgisel kontrol ───
+        if not matched_rule:
+            if "404" in title or "not found" in title or "bulunamadı" in title:
+                return False
+            for err in ["bulunamadı", "not found", "sayfa bulunamadı",
+                        "page not found", "error", "404",
+                        "bu içeriğe şu anda ulaşılamıyor"]:
+                if err in title and len(title) < 50:
+                    return False
+            return True
+
+        # ─── 1) Login / redirect kontrolü ───
+        for login_path in matched_rule.get("login_urls", []):
+            if login_path in current_url:
                 return False
 
-        driver.quit()
-        return True
-    except Exception:
-        if driver:
+        # ─── 2) Yasaklı başlık kontrolü (login wall vb.) ───
+        for bt in matched_rule.get("blocked_titles", []):
+            if bt in title:
+                return False
+
+        # ─── 3) Negatif sinyaller (page_source'ta) ───
+        for nf in matched_rule.get("not_found", []):
+            if nf in page_text:
+                return False
+
+        # ─── 4) og:type zorunlu mu? ───
+        og_type_required = matched_rule.get("og_type")
+        if og_type_required:
             try:
-                driver.quit()
-            except:
-                pass
+                og_type = driver.find_element(
+                    By.XPATH, "//meta[@property='og:type']"
+                ).get_attribute("content").lower().strip()
+                if og_type != og_type_required:
+                    return False
+            except Exception:
+                return False
+
+        # ─── 5) og:title yasaklı mı? (Telegram için) ───
+        forbidden_og_titles = matched_rule.get("require_og_title_not", [])
+        if forbidden_og_titles:
+            try:
+                og_title = driver.find_element(
+                    By.XPATH, "//meta[@property='og:title']"
+                ).get_attribute("content").lower().strip()
+                if any(ft in og_title for ft in forbidden_og_titles):
+                    return False
+            except Exception:
+                return False
+
+        # ─── 6) Pozitif sinyal (en az biri geçmeli) ───
+        ok_signals = matched_rule.get("ok_signals", [])
+        if ok_signals and not any(s in page_text for s in ok_signals):
+            return False
+
+        return True
+
+    except Exception:
         return False
+    # finally YOK — driver Start() içinde kapatılıyor
     
 found_links = []
 
 Extra_characters = ["_", "."]
 
+# ============================================================
+# SİTE KURALLARI
+# Her site için:
+#   login_urls  : current_url içinde geçerse → profil yok
+#   not_found   : page_source içinde geçerse → profil yok
+#   ok_signals  : page_source içinde geçerse → profil var (en az biri)
+#   og_type     : (opsiyonel) og:type tam olarak bu olmalı
+#   require_og  : (opsiyonel) og:title zorunlu mu? (default True)
+# ============================================================
+SITE_RULES = {
+    "facebook.com": {
+        "login_urls": ["/login", "/r.php", "/checkpoint", "/recover"],
+        "not_found": [
+            "bu içerik şu anda kullanılamıyor", "bu içeriğe ulaşılamıyor",
+            "bu sayfa mevcut değil", "aradığınız sayfa bulunamadı",
+            "içerik bulunamadı", "sayfa bulunamadı",
+            "this content isn't available", "this page isn't available",
+            "page not found", "content not found",
+        ],
+        "ok_signals": ["takipçi", "arkadaş", "gönderi", "hakkında", "followers", "friends"],
+        "og_type": "profile",
+        "blocked_titles": ["facebook", "log into facebook", "facebook - log in or sign up"],
+    },
+    "instagram.com": {
+        "login_urls": ["/accounts/login", "/login"],
+        "not_found": [
+            "üzgünüz, bu sayfaya ulaşılamıyor", "tıklandığın bağlantı bozuk olabilir",
+            "sayfa kaldırılmış olabilir", "sorry, this page isn't available",
+            "the link you followed may be broken", "page not found", "sayfa bulunamadı",
+        ],
+        "ok_signals": ["followers", "takipçi", "posts", "gönderi", "following", "takip"],
+        "og_type": "profile",
+    },
+    "threads.net": {
+        "login_urls": ["/login", "/accounts/login"],
+        "not_found": [
+            # Türkçe
+            "üzgünüz, bu sayfa kullanılamıyor",
+            "üzgünüz, bu içerik kullanılamıyor",
+            "bu sayfa mevcut değil",
+            "kullanıcı bulunamadı",
+            "sayfa bulunamadı",
+            # İngilizce
+            "sorry, this page isn't available",
+            "this page isn't available",
+            "sorry, this content isn't available",
+            "user not found",
+            "page not found",
+        ],
+        "ok_signals": ["followers", "takipçi", "threads", "following", "takip"],
+        "og_type": "profile",
+        "blocked_titles": ["threads", "threads • giriş yap"],
+    },
+    "threads.com": {  # Threads'in yeni domaini
+        "login_urls": ["/login", "/accounts/login"],
+        "not_found": [
+            "üzgünüz, bu sayfa kullanılamıyor",
+            "üzgünüz, bu içerik kullanılamıyor",
+            "bu sayfa mevcut değil",
+            "kullanıcı bulunamadı",
+            "sorry, this page isn't available",
+            "user not found",
+            "page not found",
+        ],
+        "ok_signals": ["followers", "takipçi", "threads", "following", "takip"],
+        "og_type": "profile",
+        "blocked_titles": ["threads", "threads • giriş yap"],
+    },
+    "youtube.com": {
+        "login_urls": [],
+        "not_found": [
+            "this channel doesn't exist", "this page isn't available",
+            "bu kanal mevcut değil", "bu sayfa kullanılamıyor",
+        ],
+        "ok_signals": ["subscriber", "abone", "video", "kanal", "channel"],
+        "og_type": None,
+    },
+    "tiktok.com": {
+        "login_urls": ["/login"],
+        "not_found": [
+            "couldn't find this account", "bu hesabı bulamadık",
+            "sayfa mevcut değil", "page not available", "video currently unavailable",
+        ],
+        "ok_signals": ["followers", "takipçi", "likes", "beğeni", "following"],
+        "og_type": None,
+    },
+    "twitter.com": {
+        "login_urls": ["/i/flow/login", "/login", "/i/flow/signup"],
+        "not_found": [
+            "this account doesn't exist", "bu hesap mevcut değil",
+            "account doesn't exist", "hesap bulunamadı",
+            "hmm...this page doesn't exist",
+            "bu sayfa mevcut değil",
+            # Login wall (sayfa içeriğinde)
+            "neler olduğunu gör",
+            "aşağıdaki seçeneği seçin",
+            "telefon ile devam et",
+            "google ile devam et",
+            "apple ile devam et",
+            "see what's happening",
+            "sign in to x",
+            "sign in to twitter",
+            "hesap oluştur",
+            "log in",
+        ],
+        "ok_signals": ["followers", "takipçi", "following", "tweets", "gönderi"],
+        "blocked_titles": [
+            "x. it's what's happening",
+            "twitter. it's what's happening",
+            "neler oluyor",
+        ],
+        "og_type": None,
+    },
+    "x.com": {  # Twitter'ın yeni domaini
+        "login_urls": ["/i/flow/login", "/login", "/i/flow/signup"],
+        "not_found": [
+            "this account doesn't exist", "bu hesap mevcut değil",
+            "neler olduğunu gör",
+            "aşağıdaki seçeneği seçin",
+            "telefon ile devam et",
+            "google ile devam et",
+            "apple ile devam et",
+            "see what's happening",
+            "sign in to x",
+        ],
+        "ok_signals": ["followers", "following", "tweets"],
+        "blocked_titles": ["x. it's what's happening"],
+        "og_type": None,
+    },
+    "linkedin.com": {
+        "login_urls": ["/login", "/signup", "/uas/login"],
+        "not_found": [
+            "page not found", "sayfa bulunamadı", "profile not found",
+            "this page doesn't exist", "bu sayfa mevcut değil",
+        ],
+        "ok_signals": ["connections", "bağlantı", "followers", "takipçi", "experience"],
+        "og_type": "profile",
+        "blocked_titles": ["linkedin: log in or sign up", "giriş yap"],
+    },
+    "github.com": {
+        "login_urls": [],
+        "not_found": ["page not found", "sayfa bulunamadı", "404"],
+        "ok_signals": ["repositories", "followers", "following", "depo", "takipçi"],
+        "og_type": "profile",
+    },
+    "reddit.com": {
+        "login_urls": ["/login"],
+        "not_found": [
+            "kimse bu adı kullanmıyor", "bu hesap yasaklanmış",
+            "sorry, nobody on reddit goes by that name",
+            "page not found", "not found",
+        ],
+        "ok_signals": ["karma", "post karma", "comment karma", "cake day"],
+        "og_type": None,
+    },
+    "twitch.tv": {
+        "login_urls": ["/login"],
+        "not_found": [
+            # İngilizce
+            "sorry. unless you've got a time machine",
+            "channel not found",
+            "this channel is currently unavailable",
+            # Türkçe (eklendi)
+            "bir zaman makinesine sahip değilseniz",
+            "bu içerik artık ulaşılamaz",
+            "üzgünüz. bir zaman makinesine",
+            "kanal mevcut değil",
+            "bu kanal şu anda kullanılamıyor",
+        ],
+        "ok_signals": ["followers", "takipçi", "follow", "viewers"],
+        "og_type": None,
+    },
+    "pinterest.com": {
+        "login_urls": ["/login"],
+        "not_found": ["user not found", "kullanıcı bulunamadı", "page not found"],
+        "ok_signals": ["followers", "takipçi", "pins", "following"],
+        "og_type": "profile",
+    },
+    "tumblr.com": {
+        "login_urls": [],
+        "not_found": [
+            "there's nothing here", "burada hiçbir şey yok",
+            "not found", "sayfa bulunamadı",
+        ],
+        "ok_signals": ["posts", "followers", "gönderi"],
+        "og_type": None,
+    },
+    "spotify.com": {
+        "login_urls": ["/login"],
+        "not_found": ["page not found", "sayfa bulunamadı", "couldn't find"],
+        "ok_signals": ["followers", "takipçi", "playlists", "public playlists"],
+        "og_type": "profile",
+    },
+    "steamcommunity.com": {
+        "login_urls": [],
+        "not_found": [
+            "the specified profile could not be found",
+            "belirtilen profil bulunamadı",
+        ],
+        "ok_signals": ["games", "oyun", "friends", "arkadaş", "badges"],
+        "og_type": "profile",
+    },
+    "medium.com": {
+        "login_urls": [],
+        "not_found": ["404", "out of nothing, something", "page not found"],
+        "ok_signals": ["followers", "takipçi", "following", "stories"],
+        "og_type": "profile",
+    },
+    "vk.com": {
+        "login_urls": ["/login"],
+        "not_found": ["page not found", "sayfa bulunamadı"],
+        "ok_signals": ["followers", "friends", "arkadaş", "подписчики"],
+        "og_type": "profile",
+    },
+    "quora.com": {
+        "login_urls": ["/login"],
+        "not_found": ["page not found", "we couldn't find"],
+        "ok_signals": ["followers", "answers", "questions", "yanıt"],
+        "og_type": "profile",
+    },
+    "soundcloud.com": {
+        "login_urls": ["/signin", "/login"],
+        "not_found": ["we can't find that user", "kullanıcı bulunamadı", "404"],
+        "ok_signals": ["followers", "takipçi", "tracks", "parça"],
+        "og_type": "profile",
+    },
+    "snapchat.com": {
+        "login_urls": ["/login", "/accounts/login"],
+        "not_found": [
+            # Türkçe (eklendi)
+            "üzgünüz, bu içerik bulunamadı",
+            "üzgünüz, bu içerik bulunamadı",  # noktalı/noktasız varyasyon
+            "bu içerik bulunamadı",
+            "üzgünüz",
+            "kullanıcı bulunamadı",
+            # İngilizce
+            "this username does not exist",
+            "sorry, we couldn't find that user",
+            "user not found",
+            "content not found",
+            "sorry, this content couldn't be found",
+        ],
+        # Sinyalleri sıkılaştır — sadece Snapchat'e özgü olanlar
+        "ok_signals": ["bitmoji", "snapcode", "hikaye", "story", "arkadaş ekle"],
+        "og_type": None,
+    },
+    "t.me": {
+        "login_urls": [],
+        "not_found": [
+            # Telegram var olmayan kanal/kullanıcı için "Preview channel" veya
+            # "If you have Telegram, you can contact" yerine boş sayfa basar.
+            # Aslında Telegram "username not found" gibi bir metin göstermiyor,
+            # ama boş sayfada og:title "Telegram" olur.
+            "sorry, this username is invalid",
+            "kullanıcı adı geçersiz",
+        ],
+        "ok_signals": ["telegram", "members", "üye", "subscribers", "abone", "preview"],
+        "og_type": None,
+        # t.me'de og:title boşsa veya "Telegram" ise kullanıcı yok
+        "require_og_title_not": ["telegram", "telegram messenger"],
+    },
+    "discord.com": {
+        "login_urls": ["/login", "/register"],
+        "not_found": [
+            "user not found", "kullanıcı bulunamadı",
+            "hmm, didn't work", "bir şeyler ters gitti",
+            "this user does not exist",
+        ],
+        "ok_signals": ["discord", "user", "kullanıcı"],
+        "og_type": None,
+    },
+}
+
 urls = [
     { "name": "Facebook", "url": "https://www.facebook.com/{user}", "engine": "selenium" },
     { "name": "Instagram", "url": "https://www.instagram.com/{user}/", "engine": "selenium" },
+    { "name": "Threads", "url": "https://www.threads.net/@{user}", "engine": "selenium" },
     { "name": "Twitter", "url": "https://twitter.com/{user}", "engine": "selenium" },
     { "name": "TikTok", "url": "https://www.tiktok.com/@{user}", "engine": "selenium" },
     { "name": "LinkedIn", "url": "https://www.linkedin.com/in/{user}", "engine": "selenium" },
@@ -276,9 +578,10 @@ urls = [
 popular_urls = [
     { "name": "Facebook", "url": "https://www.facebook.com/{user}", "engine": "selenium" },
     { "name": "Instagram", "url": "https://www.instagram.com/{user}/", "engine": "selenium" },
+    { "name": "Threads", "url": "https://www.threads.net/@{user}", "engine": "selenium" },
     { "name": "YouTube", "url": "https://www.youtube.com/@{user}", "engine": "selenium" },
     { "name": "TikTok", "url": "https://www.tiktok.com/@{user}", "engine": "selenium" },
-    { "name": "GitHub", "url": "https://github.com/{user}", "engine": "requests" },
+    { "name": "GitHub", "url": "https://github.com/{user}", "engine": "selenium" },
     { "name": "Spotify", "url": "https://open.spotify.com/user/{user}", "engine": "selenium" },
     { "name": "Twitter", "url": "https://twitter.com/{user}", "engine": "selenium" },
     { "name": "LinkedIn", "url": "https://www.linkedin.com/in/{user}", "engine": "selenium" },
@@ -286,7 +589,7 @@ popular_urls = [
     { "name": "Tumblr", "url": "https://{user}.tumblr.com", "engine": "selenium" },
     { "name": "Snapchat", "url": "https://www.snapchat.com/add/{user}", "engine": "selenium" },
     { "name": "Telegram", "url": "https://t.me/{user}", "engine": "selenium" },
-    { "name": "Discord", "url": "https://discord.com/users/{user}", "engine": "selenium" },
+    #{ "name": "Discord", "url": "https://discord.com/users/{user}", "engine": "selenium" },
     { "name": "Reddit", "url": "https://www.reddit.com/user/{user}", "engine": "selenium" },
     { "name": "Twitch", "url": "https://www.twitch.tv/{user}", "engine": "selenium" },
 ]
@@ -337,31 +640,60 @@ def Start():
     username = input(f" Enter the person's username:{GREEN} ")
     if username.strip() == "":
         return 0
-        
+
     variants = versionCreator(username)
-    if secim == 1:
-        target_urls = popular_urls
-        desc_text = "[+] Sosyal Medya Taranıyor"
-    else:
-        target_urls = urls
-        desc_text = "[+] Tüm Siteler Taranıyor"
+    try:
+        if secim == 1:
+            target_urls = popular_urls
+            desc_text = "[+] Sosyal Medya Taranıyor"
+        elif secim == 2:
+            target_urls = urls
+            desc_text = "[+] Tüm Siteler Taranıyor"
+        else:
+            pass
+    except NameError:
+        return 0
+
+    driver = get_smart_driver()
+    if not driver:
+        print(f"{RED}[!] Tarayıcı başlatılamadı.{RESET}")
+        return
 
     total_steps = len(variants) * len(target_urls)
-    with tqdm(total=total_steps, desc=desc_text, colour="green") as pbar:
-        for variant in variants:
-            for url_item in target_urls:
-                name = url_item["name"]
-                adress = url_item["url"].format(user=variant)
-                engine = url_item.get("engine", "requests")
-                if engine == "selenium":
-                    if check_selenium_profile(adress):
-                        tqdm.write(f"{BLUE}[+] {GREEN}{name} ({variant}): Link Found! --> {adress}")
-                        found_links.append((name, adress))
-                else:
-                    pass
-                pbar.update(1)
+    try:
+        with tqdm(total=total_steps, desc=desc_text, colour="green") as pbar:
+            for variant in variants:
+                for url_item in target_urls:
+                    name = url_item["name"]
+                    adress = url_item["url"].format(user=variant)
+                    engine = url_item.get("engine", "requests")
+                    if engine == "selenium":
+                        if check_selenium_profile(driver, adress):
+                            tqdm.write(f"{BLUE}[+] {GREEN}{name} ({variant}): Link Found! --> {adress}")
+                            found_links.append((name, adress))
+                    else:
+                        pass
+                    pbar.update(1)
+    finally:
+        try:
+            driver.quit()
+        except Exception:
+            pass
+
     fileCreator(username)
 
+TR_TO_EN = str.maketrans({
+    "ç": "c", "Ç": "c",
+    "ğ": "g", "Ğ": "g",
+    "ı": "i", "I": "i", "İ": "i",
+    "ö": "o", "Ö": "o",
+    "ş": "s", "Ş": "s",
+    "ü": "u", "Ü": "u",
+})
+
+def tr_to_en(text):
+    """Türkçe karakterleri İngilizce karşılıklarına çevirir."""
+    return text.translate(TR_TO_EN)
 
 def versionCreator(name):
     ciktilar = []
@@ -372,15 +704,36 @@ def versionCreator(name):
         ciktilar.append(cikti)
 
     for characters in Extra_characters:
+        if characters in ".":
+            continue
         cikti = f"{username.replace(' ', characters)}"
         ciktilar.append(cikti)
 
     for characters in Extra_characters:
+        if characters in ".":
+            continue
         cikti = f"{characters}{username.replace(' ', '')}{characters}"
         ciktilar.append(cikti)
 
     for characters in Extra_characters:
         cikti = f"{characters}{username.replace(' ', characters)}{characters}"
+        ciktilar.append(cikti)
+
+    username_en = tr_to_en(username)
+    for characters in Extra_characters:
+        cikti = f"{username_en.replace(' ', '')}"
+        ciktilar.append(cikti)
+
+    for characters in Extra_characters:
+        cikti = f"{username_en.replace(' ', characters)}"
+        ciktilar.append(cikti)
+
+    for characters in Extra_characters:
+        cikti = f"{characters}{username_en.replace(' ', '')}{characters}"
+        ciktilar.append(cikti)
+
+    for characters in Extra_characters:
+        cikti = f"{characters}{username_en.replace(' ', characters)}{characters}"
         ciktilar.append(cikti)
 
     return list(set(ciktilar))
